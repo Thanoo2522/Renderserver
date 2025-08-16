@@ -13,7 +13,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def index():
     return "Server is running!"
 
-@app.route("/upload", methods=["POST"])
+ 
+@app.route("/upload_image", methods=["POST"])
 def upload_image():
     data = request.json
     image_b64 = data.get("image_base64")
@@ -39,7 +40,7 @@ def upload_image():
         return jsonify({"error": str(e)}), 500
 
 # ดูภาพย้อนหลัง
-@app.route("/uploads/<filename>")
+@app.route("/upload_image/<filename>")
 def get_uploaded_image(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
