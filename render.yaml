@@ -3,7 +3,7 @@ services:
     name: my-flask-ai
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:app
+    startCommand: gunicorn app:app
     plan: free
     envVars:
       - key: OPENAI_API_KEY
