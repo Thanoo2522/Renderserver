@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: my-flask-ai
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app
+    plan: free
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
