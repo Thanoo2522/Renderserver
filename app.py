@@ -20,7 +20,7 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 # ------------------- Index -------------------
 @app.route("/")
 def index():
-    return "Server is running!"
+    return "Server is running! (AI mode)"
 
 # ------------------- Upload -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -33,7 +33,6 @@ def upload_image():
         image_b64 = data.get("image_base64")
         question = data.get("question", "")
 
-        # ตรวจสอบ token
         if token != ACCESS_TOKEN:
             return jsonify({"error": "Invalid token"}), 403
 
@@ -51,9 +50,9 @@ def upload_image():
         image_b64_for_ai = base64.b64encode(image_bytes).decode("utf-8")
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o-mini",  # หรือ gpt-4.1 ถ้ามีสิทธิ์
             messages=[
-                {"role": "system", "content": "บอกชื่อรูปภาพ"},
+                {"role": "system", "content": "คุณคือผู้ช่วยที่อธิบายรูปภาพ"},
                 {
                     "role": "user",
                     "content": [
@@ -64,14 +63,17 @@ def upload_image():
             ]
         )
 
-        # ✅ ดึงข้อความออกมา
+        # ✅ รองรับทั้ง SDK เก่า/ใหม่
         ai_answer = ""
-        if response.choices and len(response.choices) > 0:
-            parts = response.choices[0].message.content
+        msg = response.choices[0].message
+        if hasattr(msg, "content"):
+            ai_answer = msg.content  # SDK เก่า
+        elif isinstance(msg, dict) and "content" in msg:
+            parts = msg["content"]
             if isinstance(parts, list):
                 ai_answer = "".join([p["text"] for p in parts if p["type"] == "text"])
-            elif isinstance(parts, str):
-                ai_answer = parts
+            else:
+                ai_answer = str(parts)
 
         return jsonify({
             "answer": ai_answer,
@@ -80,7 +82,7 @@ def upload_image():
 
     except Exception as e:
         import traceback
-        print("❌ ERROR:", traceback.format_exc())
+        print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 # ------------------- Get Image -------------------
