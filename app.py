@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import base64
 from datetime import datetime
-from openai import OpenAI
+import replicate
 
 app = Flask(__name__)
 
@@ -11,16 +11,19 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ACCESS_TOKEN = "thanoo123456"
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-if not OPENAI_API_KEY:
-    print("❌ ERROR: OPENAI_API_KEY is not set in environment")
-client = OpenAI(api_key=OPENAI_API_KEY)
+# ดึง Replicate API Key จาก environment variable
+REPLICATE_API_KEY = os.environ.get("REPLICATE_API_KEY")
+if not REPLICATE_API_KEY:
+    raise ValueError("❌ ERROR: REPLICATE_API_KEY is not set in environment")
+
+# สร้าง client ของ Replicate
+client = replicate.Client(api_token=REPLICATE_API_KEY)
 
 # ------------------- Index -------------------
 @app.route("/")
 def index():
-    return "Server is running! (AI mode)"
+    return "Server is running! (Replicate Free API mode)"
 
 # ------------------- Upload -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -39,41 +42,20 @@ def upload_image():
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
 
-        # decode และบันทึก
+        # แปลง Base64 เป็นไฟล์
         image_bytes = base64.b64decode(image_b64)
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # ------------------- เรียก AI -------------------
-        image_b64_for_ai = base64.b64encode(image_bytes).decode("utf-8")
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",  # หรือ gpt-4.1 ถ้ามีสิทธิ์
-            messages=[
-                {"role": "system", "content": "คุณคือผู้ช่วยที่อธิบายรูปภาพ"},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": question},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64_for_ai}"}}
-                    ]
-                }
-            ]
+        # ------------------- เรียก AI (Replicate BLIP-2) -------------------
+        output = client.run(
+            "salesforce/blip-image-captioning-base",
+            input={"image": open(filepath, "rb")}
         )
 
-        # ✅ รองรับทั้ง SDK เก่า/ใหม่
-        ai_answer = ""
-        msg = response.choices[0].message
-        if hasattr(msg, "content"):
-            ai_answer = msg.content  # SDK เก่า
-        elif isinstance(msg, dict) and "content" in msg:
-            parts = msg["content"]
-            if isinstance(parts, list):
-                ai_answer = "".join([p["text"] for p in parts if p["type"] == "text"])
-            else:
-                ai_answer = str(parts)
+        ai_answer = f"{output} | ข้อความคุณ: {question}"
 
         return jsonify({
             "answer": ai_answer,
