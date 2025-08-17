@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import base64
 from datetime import datetime
-from openai import OpenAI   # pip install openai
+from openai import OpenAI
 
 app = Flask(__name__)
 
@@ -10,9 +10,11 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-ACCESS_TOKEN = "thanoo123456"  # ให้ตรงกับที่ MAUI ใช้
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")  # ตั้งใน Render Dashboard > Environment
+ACCESS_TOKEN = "thanoo123456"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
+if not OPENAI_API_KEY:
+    print("❌ ERROR: OPENAI_API_KEY is not set in environment")
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ------------------- Index -------------------
@@ -23,33 +25,33 @@ def index():
 # ------------------- Upload -------------------
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
-    data = request.json
-    token = data.get("token")
-    image_b64 = data.get("image_base64")
-    question = data.get("question", "")
-
-    # ตรวจสอบ token
-    if token != ACCESS_TOKEN:
-        return jsonify({"error": "Invalid token"}), 403
-
-    if not image_b64:
-        return jsonify({"error": "No image provided"}), 400
-
     try:
-        # decode และบันทึกรูป
+        data = request.json
+        print("📥 JSON Received:", data)
+
+        token = data.get("token")
+        image_b64 = data.get("image_base64")
+        question = data.get("question", "")
+
+        # ตรวจสอบ token
+        if token != ACCESS_TOKEN:
+            return jsonify({"error": "Invalid token"}), 403
+
+        if not image_b64:
+            return jsonify({"error": "No image provided"}), 400
+
+        # decode และบันทึก
         image_bytes = base64.b64decode(image_b64)
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
-
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
         # ------------------- เรียก AI -------------------
-        # แปลงเป็น base64 อีกครั้งส่งให้ AI (OpenAI Vision)
         image_b64_for_ai = base64.b64encode(image_bytes).decode("utf-8")
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # หรือ gpt-4.1
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "บอกชื่อรูปภาพ"},
                 {
@@ -62,14 +64,23 @@ def upload_image():
             ]
         )
 
-        ai_answer = response.choices[0].message.content
+        # ✅ ดึงข้อความออกมา
+        ai_answer = ""
+        if response.choices and len(response.choices) > 0:
+            parts = response.choices[0].message.content
+            if isinstance(parts, list):
+                ai_answer = "".join([p["text"] for p in parts if p["type"] == "text"])
+            elif isinstance(parts, str):
+                ai_answer = parts
 
-        # ส่งกลับให้ MAUI ใช้ได้ตรงๆ
         return jsonify({
             "answer": ai_answer,
             "filename": filename
         })
+
     except Exception as e:
+        import traceback
+        print("❌ ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 # ------------------- Get Image -------------------
@@ -82,11 +93,8 @@ def get_uploaded_image(filename):
 def list_images():
     try:
         files = os.listdir(UPLOAD_FOLDER)
-        files.sort(reverse=True)  # เรียงจากใหม่ไปเก่า
-        urls = [
-            request.host_url + "upload_image/" + f
-            for f in files
-        ]
+        files.sort(reverse=True)
+        urls = [request.host_url + "upload_image/" + f for f in files]
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
