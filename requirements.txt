@@ -3,5 +3,6 @@ gunicorn
 openai
 requests
 replicate
+boto3
  
  

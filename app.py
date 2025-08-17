@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import base64
 from datetime import datetime
-import replicate
+import requests
 
 app = Flask(__name__)
 
@@ -10,22 +10,16 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-ACCESS_TOKEN = "thanoo123456"
+ACCESS_TOKEN = "thanoo123456"  # Token สำหรับเชื่อมกับ MAUI
+DEEPINFRA_API_KEY = os.environ.get("DEEPINFRA_API_KEY")
 
-# ดึง Replicate API Key จาก environment variable
-#OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-REPLICATE_API_KEY = os.environ.get("REPLICATE_API_KEY")
-if not REPLICATE_API_KEY:
-    raise ValueError("❌ ERROR: REPLICATE_API_KEY is not set in environment")
-
-# สร้าง client ของ Replicate
-#client = OpenAI(api_key=OPENAI_API_KEY)
-client = replicate.Client(api_token=REPLICATE_API_KEY)
+if not DEEPINFRA_API_KEY:
+    print("❌ ERROR: DEEPINFRA_API_KEY is not set in environment")
 
 # ------------------- Index -------------------
 @app.route("/")
 def index():
-    return "Server is running! (Replicate Free API mode)"
+    return "Server is running! (DeepInfra AI mode)"
 
 # ------------------- Upload -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -44,20 +38,32 @@ def upload_image():
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
 
-        # แปลง Base64 เป็นไฟล์
+        # Decode และบันทึกรูป
         image_bytes = base64.b64decode(image_b64)
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # ------------------- เรียก AI (Replicate BLIP-2) -------------------
-        output = client.run(
-            "salesforce/blip-image-captioning-base",
-            input={"image": open(filepath, "rb")}
-        )
+        # ------------------- เรียก DeepInfra -------------------
+        url = "https://api.deepinfra.com/v1/openai/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {DEEPINFRA_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "meta-llama/Meta-Llama-3-8B-Instruct",  # โมเดลฟรียอดนิยม
+            "messages": [
+                {"role": "system", "content": "คุณคือผู้ช่วย AI ที่ตอบคำถามเกี่ยวกับภาพ"},
+                {"role": "user", "content": f"รูปภาพ: {filename}\nคำถาม: {question}"}
+            ]
+        }
 
-        ai_answer = f"{output} | ข้อความคุณ: {question}"
+        response = requests.post(url, headers=headers, json=payload)
+        ai_result = response.json()
+
+        # ✅ รองรับ response
+        ai_answer = ai_result.get("choices", [{}])[0].get("message", {}).get("content", "")
 
         return jsonify({
             "answer": ai_answer,
