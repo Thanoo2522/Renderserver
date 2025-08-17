@@ -10,18 +10,18 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-ACCESS_TOKEN = "thanoo123456"  # Token สำหรับเชื่อมกับ MAUI
+ACCESS_TOKEN = "thanoo123456"
 DEEPINFRA_API_KEY = os.environ.get("DEEPINFRA_API_KEY")
 
 if not DEEPINFRA_API_KEY:
-    print("❌ ERROR: DEEPINFRA_API_KEY is not set in environment")
+    raise ValueError("❌ ERROR: DEEPINFRA_API_KEY is not set in environment")
 
 # ------------------- Index -------------------
 @app.route("/")
 def index():
-    return "Server is running! (DeepInfra AI mode)"
+    return "Server is running! (DeepInfra API mode)"
 
-# ------------------- Upload -------------------
+# ------------------- Upload Image + Question -------------------
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
     try:
@@ -38,7 +38,7 @@ def upload_image():
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
 
-        # Decode และบันทึกรูป
+        # แปลง Base64 เป็นไฟล์ JPG
         image_bytes = base64.b64decode(image_b64)
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -52,18 +52,27 @@ def upload_image():
             "Content-Type": "application/json"
         }
         payload = {
-            "model": "meta-llama/Meta-Llama-3-8B-Instruct",  # โมเดลฟรียอดนิยม
+            "model": "meta-llama/Meta-Llama-3-8B-Instruct",
             "messages": [
                 {"role": "system", "content": "คุณคือผู้ช่วย AI ที่ตอบคำถามเกี่ยวกับภาพ"},
-                {"role": "user", "content": f"รูปภาพ: {filename}\nคำถาม: {question}"}
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": f"คำถาม: {question}"},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                    ]
+                }
             ]
         }
 
         response = requests.post(url, headers=headers, json=payload)
-        ai_result = response.json()
+        result = response.json()
+        print("📤 DeepInfra Response:", result)
 
-        # ✅ รองรับ response
-        ai_answer = ai_result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        # ดึงคำตอบ AI
+        ai_answer = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if not ai_answer:
+            ai_answer = "❌ AI ไม่สามารถตอบได้"
 
         return jsonify({
             "answer": ai_answer,
