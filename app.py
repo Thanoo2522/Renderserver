@@ -13,11 +13,13 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 ACCESS_TOKEN = "thanoo123456"
 
 # ดึง Replicate API Key จาก environment variable
+#OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 REPLICATE_API_KEY = os.environ.get("REPLICATE_API_KEY")
 if not REPLICATE_API_KEY:
     raise ValueError("❌ ERROR: REPLICATE_API_KEY is not set in environment")
 
 # สร้าง client ของ Replicate
+#client = OpenAI(api_key=OPENAI_API_KEY)
 client = replicate.Client(api_token=REPLICATE_API_KEY)
 
 # ------------------- Index -------------------
