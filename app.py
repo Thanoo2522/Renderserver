@@ -19,7 +19,7 @@ if not DEEPINFRA_API_KEY:
 # ------------------- Index -------------------
 @app.route("/")
 def index():
-    return "Server is running! (DeepInfra API mode)"
+    return "Server is running! (Replicate Free API mode)"
 
 # ------------------- Upload Image + Question -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -45,34 +45,13 @@ def upload_image():
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # ------------------- เรียก DeepInfra -------------------
-        url = "https://api.deepinfra.com/v1/openai/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {DEEPINFRA_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "meta-llama/Meta-Llama-3-8B-Instruct",
-            "messages": [
-                {"role": "system", "content": "A:คุณคือผู้ช่วย AI ที่ตอบคำถามเกี่ยวกับภาพ"},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": f"คำถาม: {question}"},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
-                    ]
-                }
-            ]
-        }
+        # ------------------- เรียก AI (Replicate BLIP-2) -------------------
+        output = client.run(
+            "salesforce/blip-image-captioning-base",
+            input={"image": open(filepath, "rb")}
+        )
 
-        response = requests.post(url, headers=headers, json=payload)
-        result = response.json()
-        print("📤 DeepInfra Response:", result)
-
-        # ดึงคำตอบ AI
-        ai_answer = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-        if not ai_answer:
-            ai_answer = "❌ AI ไม่สามารถตอบได้"
+        ai_answer = f"{output} | ข้อความคุณมี: {question}"
 
         return jsonify({
             "answer": ai_answer,
