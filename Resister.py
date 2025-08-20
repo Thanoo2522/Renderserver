@@ -4,21 +4,11 @@ import os
 
 app = Flask(__name__)
 
-# อ่าน connection string จาก environment variables
-DB_HOST = os.environ.get("DB_HOST")
-DB_PORT = os.environ.get("DB_PORT", 5432)
-DB_NAME = os.environ.get("DB_NAME")
-DB_USER = os.environ.get("DB_USER")
-DB_PASS = os.environ.get("DB_PASS")
+# อ่าน Internal Database URL จาก Environment Variables ของ Web Service
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_conn():
-    return psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASS
-    )
+    return psycopg2.connect(DATABASE_URL)
 
 @app.route("/api/register", methods=["POST"])
 def register():
@@ -34,13 +24,28 @@ def register():
         conn = get_conn()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO Users (Name, Phon, Password) VALUES (%s, %s, %s)",
-            (name, phon, password)  # production ควร hash password
+            "INSERT INTO users (name, phon, password) VALUES (%s, %s, %s)",
+            (name, phon, password)   # ❗ production ควรใช้ hash password
         )
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({"success": True, "message": "สมัครสมาชิกสำเร็จ"}), 200
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/api/users", methods=["GET"])
+def get_users():
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT id, name, phon FROM users")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        users = [{"id": r[0], "name": r[1], "phon": r[2]} for r in rows]
+        return jsonify(users), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
 
