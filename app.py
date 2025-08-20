@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import base64
 from datetime import datetime
-import replicate
+import requests
 
 app = Flask(__name__)
 
@@ -11,23 +11,17 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ACCESS_TOKEN = "thanoo123456"
+DEEPINFRA_API_KEY = os.environ.get("DEEPINFRA_API_KEY")
 
-# ดึง Replicate API Key จาก environment variable
-#OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-REPLICATE_API_KEY = os.environ.get("REPLICATE_API_KEY")
-if not REPLICATE_API_KEY:
-    raise ValueError("❌ ERROR: REPLICATE_API_KEY is not set in environment")
-
-# สร้าง client ของ Replicate
-#client = OpenAI(api_key=OPENAI_API_KEY)
-client = replicate.Client(api_token=REPLICATE_API_KEY)
+if not DEEPINFRA_API_KEY:
+    raise ValueError("❌ ERROR: DEEPINFRA_API_KEY is not set in environment")
 
 # ------------------- Index -------------------
 @app.route("/")
 def index():
-    return "Server is running! (Replicate Free API mode)"
+    return "Server is running! (DeepInfra API mode)"
 
-# ------------------- Upload -------------------
+# ------------------- Upload Image + Question -------------------
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
     try:
@@ -44,20 +38,41 @@ def upload_image():
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
 
-        # แปลง Base64 เป็นไฟล์
+        # แปลง Base64 เป็นไฟล์ JPG
         image_bytes = base64.b64decode(image_b64)
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # ------------------- เรียก AI (Replicate BLIP-2) -------------------
-        output = client.run(
-            "salesforce/blip-image-captioning-base",
-            input={"image": open(filepath, "rb")}
-        )
+        # ------------------- เรียก DeepInfra -------------------
+        url = "https://api.deepinfra.com/v1/openai/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {DEEPINFRA_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "meta-llama/Meta-Llama-3-8B-Instruct",
+            "messages": [
+                {"role": "system", "content": "คุณคือผู้ช่วย AI ที่ตอบคำถามเกี่ยวกับภาพ"},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": f"คำถาม: {question}"},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                    ]
+                }
+            ]
+        }
 
-        ai_answer = f"{output} | ข้อความคุณ: {question}"
+        response = requests.post(url, headers=headers, json=payload)
+        result = response.json()
+        print("📤 DeepInfra Response:", result)
+
+        # ดึงคำตอบ AI
+        ai_answer = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if not ai_answer:
+            ai_answer = "❌ AI ไม่สามารถตอบได้"
 
         return jsonify({
             "answer": ai_answer,
