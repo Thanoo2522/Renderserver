@@ -54,7 +54,7 @@ def upload_image():
         payload = {
             "model": "meta-llama/Meta-Llama-3-8B-Instruct",
             "messages": [
-                {"role": "system", "content": "คุณคือผู้ช่วย AI ที่ตอบคำถามเกี่ยวกับภาพ"},
+                {"role": "system", "content": "A:คุณคือผู้ช่วย AI ที่ตอบคำถามเกี่ยวกับภาพ"},
                 {
                     "role": "user",
                     "content": [
