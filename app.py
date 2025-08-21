@@ -79,10 +79,10 @@ def list_images():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 # ------------------- List Questions -------------------
-@app.route("/list_questions")
-def list_questions():
-    """ดึง question/answer ที่เคยอัพโหลด"""
-    return jsonify(QUESTIONS_LOG)
+# @app.route("/list_questions")
+# def list_questions():
+  #  """ดึง question/answer ที่เคยอัพโหลด"""
+  #  return jsonify(QUESTIONS_LOG)
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))

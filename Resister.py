@@ -7,7 +7,7 @@ import os
 app = Flask(__name__)
 CORS(app)  # ✅ อนุญาต cross-origin จาก client app
 
-DATABASE_URL = os.environ.get("BASE_URL")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
