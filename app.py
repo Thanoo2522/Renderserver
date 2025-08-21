@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import base64
 from datetime import datetime
+import requests
 
 app = Flask(__name__)
 
@@ -10,9 +11,10 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ACCESS_TOKEN = "thanoo123456"
+DEEPINFRA_API_KEY = os.environ.get("DEEPINFRA_API_KEY")
 
-# เก็บประวัติ Q&A ไว้ใน memory (จะหายเมื่อ restart server)
-QUESTIONS_LOG = []
+if not DEEPINFRA_API_KEY:
+    raise ValueError("❌ ERROR: DEEPINFRA_API_KEY is not set in environment")
 
 # ------------------- Index -------------------
 @app.route("/")
@@ -43,16 +45,13 @@ def upload_image():
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # ------------------- (เดโม่) AI ตอบกลับ -------------------
-        ai_answer = f"AI-Result(for {filename}) | คำถาม: {question}"
+        # ------------------- เรียก AI (Replicate BLIP-2) -------------------
+        output = client.run(
+            "salesforce/blip-image-captioning-base",
+            input={"image": open(filepath, "rb")}
+        )
 
-        # เก็บ log
-        QUESTIONS_LOG.append({
-            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "filename": filename,
-            "question": question,
-            "answer": ai_answer
-        })
+        ai_answer = f"{output} | ข้อความคุณมี: {question}"
 
         return jsonify({
             "answer": ai_answer,
@@ -79,13 +78,11 @@ def list_images():
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 # ------------------- List Questions -------------------
 @app.route("/list_questions")
 def list_questions():
     """ดึง question/answer ที่เคยอัพโหลด"""
     return jsonify(QUESTIONS_LOG)
-
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
