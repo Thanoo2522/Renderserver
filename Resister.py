@@ -15,6 +15,8 @@ def get_conn():
 @app.route("/api/register", methods=["POST"])
 def register():
     data = request.get_json()
+    print("📩 Data received:", data)  # debug log
+
     name = data.get("name")
     phone = data.get("phone")
     password = data.get("password")
