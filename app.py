@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify, send_from_directory
 import os
 import base64
 from datetime import datetime
-import requests
 import traceback
+from openai import OpenAI
 
 app = Flask(__name__)
 
@@ -12,33 +12,38 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 ACCESS_TOKEN = "thanoo123456"  # token ของ UI
-DEEPINFRA_API_KEY = os.environ.get("DEEPINFRA_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-if not DEEPINFRA_API_KEY:
-    raise ValueError("❌ ERROR: DEEPINFRA_API_KEY is not set in environment")
+if not OPENAI_API_KEY:
+    raise ValueError("❌ ERROR: OPENAI_API_KEY is not set in environment")
+
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 # ------------------- Index -------------------
 @app.route("/")
 def index():
-    return "✅ Server is running! (DeepInfra API mode)"
+    return "✅ Server is running! (OpenAI API mode)"
 
-# ------------------- ฟังก์ชันเรียก DeepInfra -------------------
-def ask_deepinfra(filepath, question):
-    url = "https://api.deepinfra.com/v1/inference/Salesforce/blip-image-captioning-base"
-    headers = {"Authorization": f"Bearer {DEEPINFRA_API_KEY}"}
-
+# ------------------- ฟังก์ชันเรียก OpenAI -------------------
+def ask_openai(filepath, question):
     with open(filepath, "rb") as f:
-        files = {"image": f}
-        response = requests.post(url, headers=headers, files=files)
+        image_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-    if response.status_code != 200:
-        raise Exception(f"DeepInfra error: {response.text}")
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",   # หรือ gpt-4o ก็ได้
+        messages=[
+            {"role": "system", "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพ"},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": question},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                ]
+            }
+        ]
+    )
 
-    data = response.json()
-    # DeepInfra จะส่ง {"results": [{"caption": "..."}]}
-    caption = data.get("results", [{}])[0].get("caption", "ไม่พบคำตอบ")
-
-    return f"{caption} | คำถามคุณคือ: {question}"
+    return response.choices[0].message.content
 
 # ------------------- Upload Image + Question -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -64,8 +69,8 @@ def upload_image():
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # ✅ เรียก AI ผ่าน DeepInfra
-        ai_answer = ask_deepinfra(filepath, question)
+        # ✅ เรียก AI ผ่าน OpenAI
+        ai_answer = ask_openai(filepath, question)
 
         return jsonify({
             "answer": ai_answer,
