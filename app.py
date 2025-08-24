@@ -3,6 +3,7 @@ import os
 import base64
 from datetime import datetime
 import requests
+import traceback
 
 app = Flask(__name__)
 
@@ -10,7 +11,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-ACCESS_TOKEN = "thanoo123456"
+ACCESS_TOKEN = "thanoo123456"  # token ของ UI
 DEEPINFRA_API_KEY = os.environ.get("DEEPINFRA_API_KEY")
 
 if not DEEPINFRA_API_KEY:
@@ -19,7 +20,25 @@ if not DEEPINFRA_API_KEY:
 # ------------------- Index -------------------
 @app.route("/")
 def index():
-    return "Server is running! (Replicate Free API mode)"
+    return "✅ Server is running! (DeepInfra API mode)"
+
+# ------------------- ฟังก์ชันเรียก DeepInfra -------------------
+def ask_deepinfra(filepath, question):
+    url = "https://api.deepinfra.com/v1/inference/Salesforce/blip-image-captioning-base"
+    headers = {"Authorization": f"Bearer {DEEPINFRA_API_KEY}"}
+
+    with open(filepath, "rb") as f:
+        files = {"image": f}
+        response = requests.post(url, headers=headers, files=files)
+
+    if response.status_code != 200:
+        raise Exception(f"DeepInfra error: {response.text}")
+
+    data = response.json()
+    # DeepInfra จะส่ง {"results": [{"caption": "..."}]}
+    caption = data.get("results", [{}])[0].get("caption", "ไม่พบคำตอบ")
+
+    return f"{caption} | คำถามคุณคือ: {question}"
 
 # ------------------- Upload Image + Question -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -38,20 +57,15 @@ def upload_image():
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
 
-        # แปลง Base64 เป็นไฟล์ JPG
+        # ✅ แปลง Base64 เป็นไฟล์ JPG
         image_bytes = base64.b64decode(image_b64)
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # ------------------- เรียก AI (Replicate BLIP-2) -------------------
-        output = client.run(
-            "salesforce/blip-image-captioning-base",
-            input={"image": open(filepath, "rb")}
-        )
-
-        ai_answer = f"{output} | ข้อความคุณมี: {question}"
+        # ✅ เรียก AI ผ่าน DeepInfra
+        ai_answer = ask_deepinfra(filepath, question)
 
         return jsonify({
             "answer": ai_answer,
@@ -59,7 +73,6 @@ def upload_image():
         })
 
     except Exception as e:
-        import traceback
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
@@ -78,11 +91,7 @@ def list_images():
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-# ------------------- List Questions -------------------
-# @app.route("/list_questions")
-# def list_questions():
-  #  """ดึง question/answer ที่เคยอัพโหลด"""
-  #  return jsonify(QUESTIONS_LOG)
+
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
