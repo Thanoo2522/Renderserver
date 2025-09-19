@@ -12,7 +12,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-ACCESS_TOKEN = "thanoo123456"  # token ของ UI
+#ACCESS_TOKEN = "thanoo123456"  # token ของ UI
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
@@ -53,12 +53,12 @@ def upload_image():
         data = request.json
         print("📥 JSON Received:", data)
 
-        token = data.get("token")
+        #token = data.get("token")
         image_b64 = data.get("image_base64")
         question = data.get("question", "")
 
-        if token != ACCESS_TOKEN:
-            return jsonify({"error": "Invalid token"}), 403
+        #if token != ACCESS_TOKEN:
+          #  return jsonify({"error": "Invalid token"}), 403
 
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
