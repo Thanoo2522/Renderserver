@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS; CORS(app)
+#from flask_cors import CORS; CORS(app)
 import os
 import base64
 from datetime import datetime
