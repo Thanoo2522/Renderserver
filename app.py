@@ -31,7 +31,7 @@ def ask_openai(filepath, question):
         image_b64 = base64.b64encode(f.read()).decode("utf-8")
 
     response = client.chat.completions.create(
-        model="gpt-5-nano",   # gpt-4o-mini หรือ gpt-4o ก็ได้ (gpt-5-nano ราคาประหยัด)
+        model="gpt-4o-mini",   # หรือ gpt-4o ก็ได้ (gpt-5-nano ราคาประหยัด)
         messages=[
             {"role": "system", "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพ"},
             {
