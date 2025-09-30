@@ -1,10 +1,15 @@
 from flask import Flask, request, jsonify, send_from_directory
-#from flask_cors import CORS; CORS(app)
+# from flask_cors import CORS; CORS(app)
 import os
 import base64
 from datetime import datetime
 import traceback
 from openai import OpenAI
+
+# 🔧 เพิ่ม import ที่จำเป็น
+import uuid
+import json
+import requests
 
 app = Flask(__name__)
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
@@ -12,7 +17,7 @@ FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabas
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-#ACCESS_TOKEN = "thanoo123456"  # token ของ UI
+# ACCESS_TOKEN = "thanoo123456"  # token ของ UI
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
@@ -53,12 +58,12 @@ def upload_image():
         data = request.json
         print("📥 JSON Received:", data)
 
-        #token = data.get("token")
+        # token = data.get("token")
         image_b64 = data.get("image_base64")
         question = data.get("question", "")
 
-        #if token != ACCESS_TOKEN:
-          #  return jsonify({"error": "Invalid token"}), 403
+        # if token != ACCESS_TOKEN:
+        #     return jsonify({"error": "Invalid token"}), 403
 
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
@@ -98,7 +103,7 @@ def list_images():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-#--------------- บันทึกใน firebase  ---------------------
+# --------------- บันทึกใน firebase ---------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
     try:
@@ -128,7 +133,6 @@ def save_user():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
