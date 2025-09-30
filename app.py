@@ -7,7 +7,7 @@ import traceback
 from openai import OpenAI
 
 app = Flask(__name__)
-
+FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
 # ------------------- Config -------------------
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -31,7 +31,7 @@ def ask_openai(filepath, question):
         image_b64 = base64.b64encode(f.read()).decode("utf-8")
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",   # หรือ gpt-4o ก็ได้ (gpt-5-nano ราคาประหยัด)
+        model="gpt-4o-mini",   # หรือ gpt-4o ก็ได้ (gpt-5-nano ราคาประหยัดแต่ไม่stable)
         messages=[
             {"role": "system", "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพ"},
             {
@@ -97,6 +97,38 @@ def list_images():
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+#--------------- บันทึกใน firebase  ---------------------
+@app.route("/save_user", methods=["POST"])
+def save_user():
+    try:
+        data = request.json
+        shop_name = data.get("shop_name")
+        user_name = data.get("user_name")
+        phone = data.get("phone")
+
+        if not shop_name or not user_name or not phone:
+            return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
+
+        user_id = str(uuid.uuid4())
+
+        payload = {
+            "shop_name": shop_name,
+            "user_name": user_name,
+            "phone": phone
+        }
+
+        url = f"{FIREBASE_URL}/{user_id}.json"
+        res = requests.put(url, data=json.dumps(payload))
+
+        if res.status_code == 200:
+            return jsonify({"message": "บันทึกสำเร็จ", "id": user_id}), 200
+        else:
+            return jsonify({"error": res.text}), res.status_code
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
