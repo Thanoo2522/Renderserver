@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 # ------------------- Config -------------------
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
-BUCKET_NAME = "lotteryview.appspot.com"
+BUCKET_NAME = "lotteryview.firebasestorage.app" 
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -161,7 +161,7 @@ def save_image():
 
        #-------------------------------------------
 
-        doc_ref = db.collection("users").document(user_id).collection("imagelottery")
+        doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
@@ -169,7 +169,19 @@ def save_image():
             "created_at": datetime.utcnow()
         })
 
-      
+        def update_search_index(index_type, num):
+            if not num:
+                return
+            db.collection("search_index").document(index_type).collection(num).document(user_id).set({
+                ticket_id: True
+            })
+
+        if len(number6) == 6:
+            update_search_index("6_exact", number6)
+            update_search_index("3_top", number6[-3:])
+            update_search_index("3_bottom", number6[:3])
+            update_search_index("2_top", number6[-2:])
+            update_search_index("2_bottom", number6[:2])
 
         return jsonify({
             "message": "บันทึกสำเร็จ",
