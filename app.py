@@ -166,7 +166,6 @@ def save_image():
         blob.make_public()
 
         image_url = blob.public_url
-
         ticket_id = str(uuid.uuid4())
 
         payload = {
@@ -185,18 +184,19 @@ def save_image():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    #--------------- ค้าหาเลขจาก firebase-----------------------
+
+
+# ------------------- ค้นหาเลขจาก Firebase -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
     try:
         data = request.json
-        number = data.get("number")  # รับเลขจาก MAUI เช่น "12", "123", "123456"
+        number = data.get("number")  # เช่น "12", "123", "123456"
 
         if not number:
             return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
 
         print(f"🔍 Searching for number: {number}")
-
         results = []
 
         # ดึงข้อมูลทั้งหมดจาก Firebase
@@ -205,22 +205,42 @@ def search_number():
             return jsonify({"error": "ไม่สามารถเชื่อมต่อ Firebase ได้"}), 500
 
         all_users = res.json()
-
         if not all_users:
             return jsonify({"results": []}), 200
 
-        # วนค้นหาแต่ละ user_id
+        search_len = len(number)
+
+        # วนค้นหา
         for user_id, user_data in all_users.items():
             imagelottery = user_data.get("imagelottery", {})
             for ticket_id, ticket_data in imagelottery.items():
                 number6 = ticket_data.get("number6", "")
-                if number in number6:  # ถ้าระบุเลข 2,3,6 หลัก ให้ match
+                match_type = None
+
+                if search_len == 2:
+                    if number6.endswith(number):
+                        match_type = "2 ตัวบน"
+                    elif number6.startswith(number):
+                        match_type = "2 ตัวล่าง"
+
+                elif search_len == 3:
+                    if number6.endswith(number):
+                        match_type = "3 ตัวบน"
+                    elif number6.startswith(number):
+                        match_type = "3 ตัวล่าง"
+
+                elif search_len == 6:
+                    if number6 == number:
+                        match_type = "6 ตัวตรง"
+
+                if match_type:
                     results.append({
                         "user_id": user_id,
                         "ticket_id": ticket_id,
                         "image_url": ticket_data.get("image_url"),
                         "number6": number6,
-                        "quantity": ticket_data.get("quantity")
+                        "quantity": ticket_data.get("quantity"),
+                        "match_type": match_type
                     })
 
         return jsonify({"results": results}), 200
