@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, send_from_directory
-# from flask_cors import CORS; CORS(app)
 import os
 import base64
 from datetime import datetime
@@ -16,12 +15,11 @@ app = Flask(__name__)
 
 # ------------------- Config -------------------
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
-BUCKET_NAME = "lotteryview.appspot.com"  # แก้ชื่อ bucket ให้ตรงจริง ๆ
+BUCKET_NAME = "lotteryview.appspot.com"
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# โหลด service account จาก Environment Variable
 service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
 if not service_account_json:
     raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
@@ -29,7 +27,8 @@ if not service_account_json:
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
-db = firestore.client()  # Firestore client
+db = firestore.client()
+bucket = storage.bucket()
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
@@ -144,33 +143,33 @@ def save_image():
         if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
 
         with open(filepath, "wb") as f:
-            f.write(image_bytes)
+            f.write(base64.b64decode(image_base64))
 
-        bucket = storage.bucket()
         blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
-
         image_url = blob.public_url
+
         ticket_id = str(uuid.uuid4())
 
-        ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
-        ticket_ref.set({
+        doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
+        doc_ref.set({
             "image_url": image_url,
             "number6": number6,
-            "quantity": quantity
+            "quantity": quantity,
+            "created_at": datetime.utcnow()
         })
 
         def update_search_index(index_type, num):
             if not num:
                 return
-            idx_ref = db.collection("search_index").document(index_type).collection(num).document(user_id)
-            idx_ref.set({ticket_id: True}, merge=True)
+            db.collection("search_index").document(index_type).collection(num).document(user_id).set({
+                ticket_id: True
+            })
 
         if len(number6) == 6:
             update_search_index("6_exact", number6)
@@ -186,6 +185,7 @@ def save_image():
         }), 200
 
     except Exception as e:
+        print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 # ------------------- Search Ticket -------------------
