@@ -16,10 +16,10 @@ app = Flask(__name__)
 
 # ------------------- Config -------------------
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
-#----------------------------------------------------------------------
 BUCKET_NAME = "lotteryview.firebasestorage.app"  # ต้องตรงกับชื่อ bucket จริงใน Firebase Console
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 # โหลด service account จาก Environment Variable
 service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
 if not service_account_json:
@@ -27,7 +27,7 @@ if not service_account_json:
 
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
-#-----------------------------------------------------------
+
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("❌ ERROR: OPENAI_API_KEY is not set in environment")
@@ -143,17 +143,16 @@ def save_user():
 # ------------------- บันทึกภาพลง Firebase Storage + Realtime DB -------------------
 @app.route("/save_image", methods=["POST"])
 def save_image():
-   try:
+    try:
         data = request.json
         user_id = data.get("user_id")
         image_base64 = data.get("image_base64")
-        number6 = data.get("number6")  # เลข 6 หลัก
-        quantity = data.get("quantity")  # จำนวนใบ
+        number6 = data.get("number6")
+        quantity = data.get("quantity")
 
         if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        # แปลง Base64 → ไฟล์ภาพ
         image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
@@ -161,7 +160,6 @@ def save_image():
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # อัปโหลดภาพไป Firebase Storage
         bucket = storage.bucket()
         blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
@@ -169,10 +167,8 @@ def save_image():
 
         image_url = blob.public_url
 
-        # สร้าง ticket_id ใหม่
         ticket_id = str(uuid.uuid4())
 
-        # เก็บข้อมูลลง Realtime Database
         payload = {
             "image_url": image_url,
             "number6": number6,
@@ -189,6 +185,7 @@ def save_image():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
