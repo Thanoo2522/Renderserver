@@ -210,29 +210,33 @@ def search_number():
 
         search_len = len(number)
 
-        # วนค้นหา
+        # วนเช็คเลขแต่ละ user
         for user_id, user_data in all_users.items():
             imagelottery = user_data.get("imagelottery", {})
             for ticket_id, ticket_data in imagelottery.items():
                 number6 = ticket_data.get("number6", "")
                 match_type = None
 
+                # ---------- 2 ตัว ----------
                 if search_len == 2:
-                    if number6.endswith(number):
-                        match_type = "2 ตัวบน"
-                    elif number6.startswith(number):
-                        match_type = "2 ตัวล่าง"
+                    if number == number6[-2:]:
+                        match_type = "2 ตัวบน"   # หลักสิบ+หน่วยท้าย
+                    elif number == number6[:2]:
+                        match_type = "2 ตัวล่าง" # สองหลักหน้า
 
+                # ---------- 3 ตัว ----------
                 elif search_len == 3:
-                    if number6.endswith(number):
-                        match_type = "3 ตัวบน"
-                    elif number6.startswith(number):
-                        match_type = "3 ตัวล่าง"
+                    if number == number6[-3:]:
+                        match_type = "3 ตัวบน"   # ร้อย+สิบ+หน่วยท้าย
+                    elif number == number6[:3]:
+                        match_type = "3 ตัวล่าง" # สามหลักหน้า
 
+                # ---------- 6 ตัว ----------
                 elif search_len == 6:
-                    if number6 == number:
+                    if number == number6:
                         match_type = "6 ตัวตรง"
 
+                # ถ้า match → เก็บผลลัพธ์
                 if match_type:
                     results.append({
                         "user_id": user_id,
@@ -249,7 +253,8 @@ def search_number():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-# test
+
+
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
