@@ -169,19 +169,7 @@ def save_image():
             "created_at": datetime.utcnow()
         })
 
-        def update_search_index(index_type, num):
-            if not num:
-                return
-            db.collection("search_index").document(index_type).collection(num).document(user_id).set({
-                ticket_id: True
-            })
-
-        if len(number6) == 6:
-            update_search_index("6_exact", number6)
-            update_search_index("3_top", number6[-3:])
-            update_search_index("3_bottom", number6[:3])
-            update_search_index("2_top", number6[-2:])
-            update_search_index("2_bottom", number6[:2])
+      
 
         return jsonify({
             "message": "บันทึกสำเร็จ",
