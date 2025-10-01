@@ -6,4 +6,7 @@ replicate
 boto3
  flask-cors
 psycopg2-binary
+firebase-admin
+ 
+
  
