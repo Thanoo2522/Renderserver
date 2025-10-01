@@ -143,7 +143,7 @@ def save_image():
         if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-         #-------------------------------------------
+        # -------------------------------------------
         image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
@@ -151,7 +151,6 @@ def save_image():
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        bucket = storage.bucket()
         blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
@@ -159,8 +158,7 @@ def save_image():
         image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
 
-       #-------------------------------------------
-
+        # -------------------------------------------
         doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
@@ -169,19 +167,19 @@ def save_image():
             "created_at": datetime.utcnow()
         })
 
+        # ---------------- Update Search Index ----------------
         def update_search_index(index_type, num, user_id, ticket_id):
-          if not num:
-        return
-         db.collection("search_index").document(index_type).collection(num).document(user_id).set({
-        ticket_id: True
-           })
+            if not num:
+                return
+            db.collection("search_index").document(index_type).collection(num).document(user_id).set({
+                ticket_id: True
+            })
 
-     # หลังจากสร้าง ticket_id แล้วใน /save_image
-      update_search_index("6_exact", number6, user_id, ticket_id)
-      update_search_index("3_top", number6[-3:], user_id, ticket_id)
-      update_search_index("3_bottom", number6[:3], user_id, ticket_id)
-      update_search_index("2_top", number6[-2:], user_id, ticket_id)
-      update_search_index("2_bottom", number6[:2], user_id, ticket_id)
+        update_search_index("6_exact", number6, user_id, ticket_id)
+        update_search_index("3_top", number6[-3:], user_id, ticket_id)
+        update_search_index("3_bottom", number6[:3], user_id, ticket_id)
+        update_search_index("2_top", number6[-2:], user_id, ticket_id)
+        update_search_index("2_bottom", number6[:2], user_id, ticket_id)
 
         return jsonify({
             "message": "บันทึกสำเร็จ",
