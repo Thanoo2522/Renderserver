@@ -169,19 +169,19 @@ def save_image():
             "created_at": datetime.utcnow()
         })
 
-        def update_search_index(index_type, num):
-            if not num:
-                return
-            db.collection("search_index").document(index_type).collection(num).document(user_id).set({
-                ticket_id: True
-            })
+        def update_search_index(index_type, num, user_id, ticket_id):
+          if not num:
+        return
+         db.collection("search_index").document(index_type).collection(num).document(user_id).set({
+        ticket_id: True
+           })
 
-        
-            update_search_index("6_exact", number6)
-            update_search_index("3_top", number6[-3:])
-            update_search_index("3_bottom", number6[:3])
-            update_search_index("2_top", number6[-2:])
-            update_search_index("2_bottom", number6[:2])
+     # หลังจากสร้าง ticket_id แล้วใน /save_image
+      update_search_index("6_exact", number6, user_id, ticket_id)
+      update_search_index("3_top", number6[-3:], user_id, ticket_id)
+      update_search_index("3_bottom", number6[:3], user_id, ticket_id)
+      update_search_index("2_top", number6[-2:], user_id, ticket_id)
+      update_search_index("2_bottom", number6[:2], user_id, ticket_id)
 
         return jsonify({
             "message": "บันทึกสำเร็จ",
