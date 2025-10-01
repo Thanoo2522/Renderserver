@@ -176,7 +176,7 @@ def save_image():
                 ticket_id: True
             })
 
-        if len(number6) == 6:
+        if len(str(number6)) == 6:
             update_search_index("6_exact", number6)
             update_search_index("3_top", number6[-3:])
             update_search_index("3_bottom", number6[:3])
