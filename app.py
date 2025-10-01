@@ -10,13 +10,14 @@ import uuid
 import json
 import requests
 import firebase_admin
-from firebase_admin import credentials, storage
+from firebase_admin import credentials, storage, firestore
 
 app = Flask(__name__)
 
 # ------------------- Config -------------------
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
-BUCKET_NAME = "lotteryview.firebasestorage.app"  # ✅ ต้องตรงกับ bucket จริง
+BUCKET_NAME = "lotteryview.appspot.com"  # แก้ชื่อ bucket ให้ตรงจริง ๆ
+
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -28,18 +29,18 @@ if not service_account_json:
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
+db = firestore.client()  # Firestore client
+
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("❌ ERROR: OPENAI_API_KEY is not set in environment")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-
 # ------------------- Routes -------------------
 @app.route("/")
 def index():
     return "✅ Server is running! (OpenAI API mode)"
-
 
 # ------------------- ฟังก์ชันเรียก OpenAI -------------------
 def ask_openai(filepath, question):
@@ -60,7 +61,6 @@ def ask_openai(filepath, question):
         ]
     )
     return response.choices[0].message.content
-
 
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -89,11 +89,9 @@ def upload_image():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/upload_image/<filename>")
 def get_uploaded_image(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
-
 
 @app.route("/list_images")
 def list_images():
@@ -104,7 +102,6 @@ def list_images():
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
@@ -122,23 +119,17 @@ def save_user():
         if not user_id:
             user_id = str(uuid.uuid4())
 
-        payload = {
+        doc_ref = db.collection("users").document(user_id)
+        doc_ref.set({
             "shop_name": shop_name,
             "user_name": user_name,
             "phone": phone
-        }
+        })
 
-        url = f"{FIREBASE_URL}/{user_id}/profile.json"
-        res = requests.put(url, data=json.dumps(payload))
-
-        if res.status_code == 200:
-            return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
-        else:
-            return jsonify({"error": res.text}), res.status_code
+        return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ------------------- Save Image + Ticket -------------------
 @app.route("/save_image", methods=["POST"])
@@ -153,10 +144,10 @@ def save_image():
         if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        # 1️⃣ บันทึกไฟล์ภาพลง Firebase Storage
         image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
+
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
@@ -168,32 +159,25 @@ def save_image():
         image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
 
-        # 2️⃣ บันทึกข้อมูล Ticket ลง Realtime DB
-        payload = {
+        ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
+        ticket_ref.set({
             "image_url": image_url,
             "number6": number6,
             "quantity": quantity
-        }
-        url = f"{FIREBASE_URL}/{user_id}/imagelottery/{ticket_id}.json"
-        res = requests.put(url, data=json.dumps(payload))
-        if res.status_code != 200:
-            return jsonify({"error": res.text}), res.status_code
+        })
 
-        # 3️⃣ ฟังก์ชันอัปเดต Search Index
         def update_search_index(index_type, num):
             if not num:
                 return
-            idx_url = f"{FIREBASE_URL.replace('/users', '')}/search_index/{index_type}/{num}/{user_id}/{ticket_id}.json"
-            res_idx = requests.put(idx_url, data=json.dumps(True))
-            print(f"[INDEX] {idx_url} -> {res_idx.status_code}")
+            idx_ref = db.collection("search_index").document(index_type).collection(num).document(user_id)
+            idx_ref.set({ticket_id: True}, merge=True)
 
-        # 4️⃣ เพิ่มเลขเข้าดัชนีค้นหา
-        if len(str(number6)) == 6:
-            update_search_index("6_exact", number6)       # เลข 6 ตัวตรง
-            update_search_index("3_top", number6[-3:])    # 3 ตัวบน
-            update_search_index("3_bottom", number6[:3])  # 3 ตัวล่าง
-            update_search_index("2_top", number6[-2:])    # 2 ตัวบน
-            update_search_index("2_bottom", number6[:2])  # 2 ตัวล่าง
+        if len(number6) == 6:
+            update_search_index("6_exact", number6)
+            update_search_index("3_top", number6[-3:])
+            update_search_index("3_bottom", number6[:3])
+            update_search_index("2_top", number6[-2:])
+            update_search_index("2_bottom", number6[:2])
 
         return jsonify({
             "message": "บันทึกสำเร็จ",
@@ -203,7 +187,6 @@ def save_image():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ------------------- Search Ticket -------------------
 @app.route("/search_number", methods=["POST"])
@@ -215,9 +198,8 @@ def search_number():
         if not number:
             return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
 
-        print(f"🔍 Searching for number: {number}")
-        results = []
         search_len = len(number)
+        index_types = []
 
         if search_len == 2:
             index_types = ["2_top", "2_bottom"]
@@ -228,57 +210,55 @@ def search_number():
         else:
             return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
 
-        matched_paths = []
+        results = []
+
         for idx in index_types:
-            idx_url = f"{FIREBASE_URL.replace('/users', '')}/search_index/{idx}/{number}.json"
-            res = requests.get(idx_url)
-            if res.status_code == 200 and res.json():
-                index_data = res.json()  # {user_id: {ticket_id: true}}
-                for user_id, tickets in index_data.items():
-                    for ticket_id in tickets.keys():
-                        matched_paths.append((user_id, ticket_id, idx))
+            idx_col = db.collection("search_index").document(idx).collection(number)
+            docs = idx_col.stream()
 
-        # 🔄 ดึงข้อมูล Ticket ที่ match
-        for user_id, ticket_id, idx in matched_paths:
-            ticket_url = f"{FIREBASE_URL}/{user_id}/imagelottery/{ticket_id}.json"
-            ticket_res = requests.get(ticket_url)
-            if ticket_res.status_code != 200 or not ticket_res.json():
-                continue
+            for doc in docs:
+                user_id = doc.id
+                tickets = doc.to_dict()
 
-            ticket_data = ticket_res.json()
-            number6 = ticket_data.get("number6", "")
-            match_type = None
+                for ticket_id in tickets.keys():
+                    ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
+                    ticket_doc = ticket_ref.get()
+                    if not ticket_doc.exists:
+                        continue
 
-            if search_len == 2:
-                if number == number6[-2:]:
-                    match_type = "2 ตัวบน"
-                elif number == number6[:2]:
-                    match_type = "2 ตัวล่าง"
-            elif search_len == 3:
-                if number == number6[-3:]:
-                    match_type = "3 ตัวบน"
-                elif number == number6[:3]:
-                    match_type = "3 ตัวล่าง"
-            elif search_len == 6:
-                if number == number6:
-                    match_type = "6 ตัวตรง"
+                    ticket_data = ticket_doc.to_dict()
+                    number6 = ticket_data.get("number6", "")
+                    match_type = None
 
-            if match_type:
-                results.append({
-                    "user_id": user_id,
-                    "ticket_id": ticket_id,
-                    "image_url": ticket_data.get("image_url"),
-                    "number6": number6,
-                    "quantity": ticket_data.get("quantity"),
-                    "match_type": match_type
-                })
+                    if search_len == 2:
+                        if number == number6[-2:]:
+                            match_type = "2 ตัวบน"
+                        elif number == number6[:2]:
+                            match_type = "2 ตัวล่าง"
+                    elif search_len == 3:
+                        if number == number6[-3:]:
+                            match_type = "3 ตัวบน"
+                        elif number == number6[:3]:
+                            match_type = "3 ตัวล่าง"
+                    elif search_len == 6:
+                        if number == number6:
+                            match_type = "6 ตัวตรง"
+
+                    if match_type:
+                        results.append({
+                            "user_id": user_id,
+                            "ticket_id": ticket_id,
+                            "image_url": ticket_data.get("image_url"),
+                            "number6": number6,
+                            "quantity": ticket_data.get("quantity"),
+                            "match_type": match_type
+                        })
 
         return jsonify({"results": results}), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
