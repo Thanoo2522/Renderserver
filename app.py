@@ -143,21 +143,25 @@ def save_user():
 # ------------------- บันทึกภาพลง Firebase Storage + Realtime DB -------------------
 @app.route("/save_image", methods=["POST"])
 def save_image():
-    try:
+   try:
         data = request.json
         user_id = data.get("user_id")
-        image_b64 = data.get("image_base64")
+        image_base64 = data.get("image_base64")
+        number6 = data.get("number6")  # เลข 6 หลัก
+        quantity = data.get("quantity")  # จำนวนใบ
 
-        if not user_id or not image_b64:
+        if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        image_bytes = base64.b64decode(image_b64)
+        # แปลง Base64 → ไฟล์ภาพ
+        image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
 
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
+        # อัปโหลดภาพไป Firebase Storage
         bucket = storage.bucket()
         blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
@@ -165,19 +169,26 @@ def save_image():
 
         image_url = blob.public_url
 
-        # เก็บ URL ลง Realtime Database ใน imagelottery
-        payload = json.dumps(image_url)
-        url = f"{FIREBASE_URL}/{user_id}/imagelottery.json"
-        res = requests.post(url, data=payload)
+        # สร้าง ticket_id ใหม่
+        ticket_id = str(uuid.uuid4())
+
+        # เก็บข้อมูลลง Realtime Database
+        payload = {
+            "image_url": image_url,
+            "number6": number6,
+            "quantity": quantity
+        }
+
+        url = f"{FIREBASE_URL}/{user_id}/imagelottery/{ticket_id}.json"
+        res = requests.put(url, data=json.dumps(payload))
 
         if res.status_code == 200:
-            return jsonify({"message": "อัปโหลดภาพสำเร็จ", "url": image_url}), 200
+            return jsonify({"message": "บันทึกสำเร็จ", "ticket_id": ticket_id}), 200
         else:
             return jsonify({"error": res.text}), res.status_code
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
