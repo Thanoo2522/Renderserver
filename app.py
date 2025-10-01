@@ -12,7 +12,7 @@ import json
 import requests
 
 app = Flask(__name__)
-FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users/profile"
+FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
 # ------------------- Config -------------------
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -127,7 +127,8 @@ def save_user():
             "phone": phone
         }
 
-        url = f"{FIREBASE_URL}/{user_id}.json"
+        #url = f"{FIREBASE_URL}/{user_id}.json"
+        url = f"{FIREBASE_URL}/{user_id}/profile.json"
         res = requests.put(url, data=json.dumps(payload))
 
         if res.status_code == 200:
