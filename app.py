@@ -16,8 +16,10 @@ app = Flask(__name__)
 
 # ------------------- Config -------------------
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
+#----------------------------------------------------------------------
 BUCKET_NAME = "lotteryview.firebasestorage.app"  # ต้องตรงกับชื่อ bucket จริงใน Firebase Console
-
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # โหลด service account จาก Environment Variable
 service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
 if not service_account_json:
@@ -25,10 +27,7 @@ if not service_account_json:
 
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
-
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
+#-----------------------------------------------------------
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise ValueError("❌ ERROR: OPENAI_API_KEY is not set in environment")
