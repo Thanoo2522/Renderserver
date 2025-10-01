@@ -185,6 +185,49 @@ def save_image():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    #--------------- ค้าหาเลขจาก firebase-----------------------
+@app.route("/search_number", methods=["POST"])
+def search_number():
+    try:
+        data = request.json
+        number = data.get("number")  # รับเลขจาก MAUI เช่น "12", "123", "123456"
+
+        if not number:
+            return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
+
+        print(f"🔍 Searching for number: {number}")
+
+        results = []
+
+        # ดึงข้อมูลทั้งหมดจาก Firebase
+        res = requests.get(f"{FIREBASE_URL}.json")
+        if res.status_code != 200:
+            return jsonify({"error": "ไม่สามารถเชื่อมต่อ Firebase ได้"}), 500
+
+        all_users = res.json()
+
+        if not all_users:
+            return jsonify({"results": []}), 200
+
+        # วนค้นหาแต่ละ user_id
+        for user_id, user_data in all_users.items():
+            imagelottery = user_data.get("imagelottery", {})
+            for ticket_id, ticket_data in imagelottery.items():
+                number6 = ticket_data.get("number6", "")
+                if number in number6:  # ถ้าระบุเลข 2,3,6 หลัก ให้ match
+                    results.append({
+                        "user_id": user_id,
+                        "ticket_id": ticket_id,
+                        "image_url": ticket_data.get("image_url"),
+                        "number6": number6,
+                        "quantity": ticket_data.get("quantity")
+                    })
+
+        return jsonify({"results": results}), 200
+
+    except Exception as e:
+        print("❌ SERVER ERROR:", traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
 
 
 # ------------------- Run -------------------
