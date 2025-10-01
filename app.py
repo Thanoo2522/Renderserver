@@ -143,18 +143,23 @@ def save_image():
         if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
+         #-------------------------------------------
+        image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
 
         with open(filepath, "wb") as f:
-            f.write(base64.b64decode(image_base64))
+            f.write(image_bytes)
 
+        bucket = storage.bucket()
         blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
-        image_url = blob.public_url
 
+        image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
+
+       #-------------------------------------------
 
         doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
