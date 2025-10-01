@@ -182,17 +182,12 @@ def save_image():
         if res.status_code != 200:
             return jsonify({"error": res.text}), res.status_code
 
-        # 3️⃣ สร้าง Index เพื่อค้นหาเลขได้เร็วขึ้น
+        # 3️⃣ สร้าง Map/Dictionary Index เพื่อค้นหาเลขได้เร็วขึ้น
         def update_search_index(index_type, num):
             if not num:
                 return
-            idx_url = f"{FIREBASE_URL}/search_index/{index_type}/{num}.json"
-            existing = requests.get(idx_url).json()
-            if not existing:
-                existing = []
-            if f"{user_id}/{ticket_id}" not in existing:
-                existing.append(f"{user_id}/{ticket_id}")
-            requests.put(idx_url, json=existing)
+            idx_url = f"{FIREBASE_URL.replace('/users', '')}/search_index/{index_type}/{num}/{user_id}/{ticket_id}.json"
+            requests.put(idx_url, json=True)  # บันทึกค่า true เพื่อเป็น flag
 
         if len(number6) == 6:
             update_search_index("6_exact", number6)       # เลข 6 ตัวตรง
@@ -205,6 +200,7 @@ def save_image():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # ------------------- ค้นหาเลขจาก Firebase -------------------
 @app.route("/search_number", methods=["POST"])
@@ -220,64 +216,69 @@ def search_number():
         results = []
 
         search_len = len(number)
-        index_type = None
+        index_types = []
 
+        # กำหนดประเภท index ตามความยาวเลขที่ค้นหา
         if search_len == 2:
-            index_type = ["2_top", "2_bottom"]
+            index_types = ["2_top", "2_bottom"]
         elif search_len == 3:
-            index_type = ["3_top", "3_bottom"]
+            index_types = ["3_top", "3_bottom"]
         elif search_len == 6:
-            index_type = ["6_exact"]
+            index_types = ["6_exact"]
         else:
             return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
 
-        matched_paths = set()
+        matched_paths = {}
 
-        # 🔍 ค้นหาจาก index ใน Firebase
-        for idx in index_type:
+        # 🔍 ค้นหาจาก map index ใน Firebase
+        for idx in index_types:
             idx_url = f"{FIREBASE_URL.replace('/users', '')}/search_index/{idx}/{number}.json"
             res = requests.get(idx_url)
             if res.status_code == 200 and res.json():
-                matched_paths.update(res.json())
+                idx_data = res.json()  # จะได้ dict: {user_id: {ticket_id: true}}
+                for user_id, tickets in idx_data.items():
+                    if user_id not in matched_paths:
+                        matched_paths[user_id] = set()
+                    matched_paths[user_id].update(tickets.keys())
 
         if not matched_paths:
             return jsonify({"results": []}), 200
 
-        # 🔄 ดึงข้อมูลจาก paths ที่ match ใน index
-        for path in matched_paths:
-            user_id, ticket_id = path.split("/")
-            ticket_url = f"{FIREBASE_URL}/{user_id}/imagelottery/{ticket_id}.json"
-            ticket_res = requests.get(ticket_url)
-            if ticket_res.status_code != 200 or not ticket_res.json():
-                continue
+        # 🔄 ดึงข้อมูลจาก paths ที่ match
+        for user_id, ticket_ids in matched_paths.items():
+            for ticket_id in ticket_ids:
+                ticket_url = f"{FIREBASE_URL}/{user_id}/imagelottery/{ticket_id}.json"
+                ticket_res = requests.get(ticket_url)
+                if ticket_res.status_code != 200 or not ticket_res.json():
+                    continue
 
-            ticket_data = ticket_res.json()
-            number6 = ticket_data.get("number6", "")
-            match_type = None
+                ticket_data = ticket_res.json()
+                number6 = ticket_data.get("number6", "")
+                match_type = None
 
-            if search_len == 2:
-                if number == number6[-2:]:
-                    match_type = "2 ตัวบน"
-                elif number == number6[:2]:
-                    match_type = "2 ตัวล่าง"
-            elif search_len == 3:
-                if number == number6[-3:]:
-                    match_type = "3 ตัวบน"
-                elif number == number6[:3]:
-                    match_type = "3 ตัวล่าง"
-            elif search_len == 6:
-                if number == number6:
-                    match_type = "6 ตัวตรง"
+                if search_len == 2:
+                    if number == number6[-2:]:
+                        match_type = "2 ตัวบน"
+                    elif number == number6[:2]:
+                        match_type = "2 ตัวล่าง"
+                elif search_len == 3:
+                    if number == number6[-3:]:
+                        match_type = "3 ตัวบน"
+                    elif number == number6[:3]:
+                        match_type = "3 ตัวล่าง"
+                elif search_len == 6:
+                    if number == number6:
+                        match_type = "6 ตัวตรง"
 
-            if match_type:
-                results.append({
-                    "user_id": user_id,
-                    "ticket_id": ticket_id,
-                    "image_url": ticket_data.get("image_url"),
-                    "number6": number6,
-                    "quantity": ticket_data.get("quantity"),
-                    "match_type": match_type
-                })
+                if match_type:
+                    results.append({
+                        "user_id": user_id,
+                        "ticket_id": ticket_id,
+                        "image_url": ticket_data.get("image_url"),
+                        "number6": number6,
+                        "quantity": ticket_data.get("quantity"),
+                        "match_type": match_type
+                    })
 
         return jsonify({"results": results}), 200
 
