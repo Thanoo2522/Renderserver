@@ -161,7 +161,7 @@ def save_image():
 
        #-------------------------------------------
 
-        doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
+        doc_ref = db.collection("users").document(user_id).collection("imagelottery")
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
