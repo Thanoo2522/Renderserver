@@ -6,29 +6,41 @@ from datetime import datetime
 import traceback
 from openai import OpenAI
 
-# 🔧 เพิ่ม import ที่จำเป็น
 import uuid
 import json
 import requests
+import firebase_admin
+from firebase_admin import credentials, storage
 
 app = Flask(__name__)
-FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
+
 # ------------------- Config -------------------
+FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
+BUCKET_NAME = "lotteryview.firebasestorage.app"  # ต้องตรงกับชื่อ bucket จริงใน Firebase Console
+
+# โหลด service account จาก Environment Variable
+service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
+if not service_account_json:
+    raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
+
+cred = credentials.Certificate(json.loads(service_account_json))
+firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
+
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ACCESS_TOKEN = "thanoo123456"  # token ของ UI
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-
 if not OPENAI_API_KEY:
     raise ValueError("❌ ERROR: OPENAI_API_KEY is not set in environment")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# ------------------- Index -------------------
+
+# ------------------- Routes -------------------
 @app.route("/")
 def index():
     return "✅ Server is running! (OpenAI API mode)"
+
 
 # ------------------- ฟังก์ชันเรียก OpenAI -------------------
 def ask_openai(filepath, question):
@@ -36,7 +48,7 @@ def ask_openai(filepath, question):
         image_b64 = base64.b64encode(f.read()).decode("utf-8")
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",   # หรือ gpt-4o ก็ได้ (gpt-5-nano ราคาประหยัดแต่ไม่stable)
+        model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพ"},
             {
@@ -51,31 +63,22 @@ def ask_openai(filepath, question):
 
     return response.choices[0].message.content
 
-# ------------------- Upload Image + Question -------------------
+
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
     try:
         data = request.json
-        print("📥 JSON Received:", data)
-
-        # token = data.get("token")
         image_b64 = data.get("image_base64")
         question = data.get("question", "")
-
-        # if token != ACCESS_TOKEN:
-        #     return jsonify({"error": "Invalid token"}), 403
 
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
 
-        # ✅ แปลง Base64 เป็นไฟล์ JPG
-        image_bytes = base64.b64decode(image_b64)
         filename = datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         with open(filepath, "wb") as f:
-            f.write(image_bytes)
+            f.write(base64.b64decode(image_b64))
 
-        # ✅ เรียก AI ผ่าน OpenAI
         ai_answer = ask_openai(filepath, question)
 
         return jsonify({
@@ -87,12 +90,12 @@ def upload_image():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-# ------------------- Get Image -------------------
+
 @app.route("/upload_image/<filename>")
 def get_uploaded_image(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
-# ------------------- List Images -------------------
+
 @app.route("/list_images")
 def list_images():
     try:
@@ -102,9 +105,9 @@ def list_images():
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
-# --------------- บันทึกใน firebase ---------------------
-# --------------- บันทึกใน firebase ---------------------
+
+
+# ------------------- บันทึก Profile ใน Firebase -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
     try:
@@ -112,12 +115,11 @@ def save_user():
         shop_name = data.get("shop_name")
         user_name = data.get("user_name")
         phone = data.get("phone")
-        user_id = data.get("user_id")  # ✅ รับจาก MAUI
+        user_id = data.get("user_id")  # รับจาก MAUI
 
         if not shop_name or not user_name or not phone:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        # ถ้า MAUI ไม่ส่งมา ให้ gen เอง
         if not user_id:
             user_id = str(uuid.uuid4())
 
@@ -127,17 +129,56 @@ def save_user():
             "phone": phone
         }
 
-        #url = f"{FIREBASE_URL}/{user_id}.json"
         url = f"{FIREBASE_URL}/{user_id}/profile.json"
         res = requests.put(url, data=json.dumps(payload))
 
         if res.status_code == 200:
-            return jsonify({"message": "บันทึกสำเร็จ", "id": user_id}), 200
+            return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
         else:
             return jsonify({"error": res.text}), res.status_code
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# ------------------- บันทึกภาพลง Firebase Storage + Realtime DB -------------------
+@app.route("/save_image", methods=["POST"])
+def save_image():
+    try:
+        data = request.json
+        user_id = data.get("user_id")
+        image_b64 = data.get("image_base64")
+
+        if not user_id or not image_b64:
+            return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
+
+        image_bytes = base64.b64decode(image_b64)
+        filename = f"{str(uuid.uuid4())}.jpg"
+        filepath = os.path.join("/tmp", filename)
+
+        with open(filepath, "wb") as f:
+            f.write(image_bytes)
+
+        bucket = storage.bucket()
+        blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
+        blob.upload_from_filename(filepath)
+        blob.make_public()
+
+        image_url = blob.public_url
+
+        # เก็บ URL ลง Realtime Database ใน imagelottery
+        payload = json.dumps(image_url)
+        url = f"{FIREBASE_URL}/{user_id}/imagelottery.json"
+        res = requests.post(url, data=payload)
+
+        if res.status_code == 200:
+            return jsonify({"message": "อัปโหลดภาพสำเร็จ", "url": image_url}), 200
+        else:
+            return jsonify({"error": res.text}), res.status_code
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
