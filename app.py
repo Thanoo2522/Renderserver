@@ -188,7 +188,7 @@ def save_image():
             print(f"[INDEX] {idx_url} -> {res_idx.status_code}")
 
         # 4️⃣ เพิ่มเลขเข้าดัชนีค้นหา
-        if len(number6) == 6:
+        if len(str(number6)) == 6:
             update_search_index("6_exact", number6)       # เลข 6 ตัวตรง
             update_search_index("3_top", number6[-3:])    # 3 ตัวบน
             update_search_index("3_bottom", number6[:3])  # 3 ตัวล่าง
