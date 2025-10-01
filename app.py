@@ -104,6 +104,7 @@ def list_images():
         return jsonify({"error": str(e)}), 500
     
 # --------------- บันทึกใน firebase ---------------------
+# --------------- บันทึกใน firebase ---------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
     try:
@@ -111,11 +112,14 @@ def save_user():
         shop_name = data.get("shop_name")
         user_name = data.get("user_name")
         phone = data.get("phone")
+        user_id = data.get("user_id")  # ✅ รับจาก MAUI
 
         if not shop_name or not user_name or not phone:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        user_id = str(uuid.uuid4())
+        # ถ้า MAUI ไม่ส่งมา ให้ gen เอง
+        if not user_id:
+            user_id = str(uuid.uuid4())
 
         payload = {
             "shop_name": shop_name,
