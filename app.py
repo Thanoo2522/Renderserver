@@ -271,11 +271,10 @@ def search_number():
                         if search_len == 2 and number == number6[-2:]:
                            match_type = "2 ตัวล่าง"
 
-                        if search_len == 3:
-                          if number == number6[-3:]:
-                              match_type = "3 ตัวบน"
-                          if number == number6[:3]:
-                              match_type = "3 ตัวล่าง"
+                        if search_len == 3 and number == number6[-3:]:
+                            match_type = "3 ตัวบน"
+                        if search_len == 3 and number == number6[:3]:
+                            match_type = "3 ตัวล่าง"
 
                         if search_len == 6 and number == number6:
                             match_type = "6 ตัวตรง"
