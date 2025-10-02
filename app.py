@@ -4,7 +4,6 @@ import base64
 from datetime import datetime
 import traceback
 from openai import OpenAI
-
 import uuid
 import json
 import requests
@@ -15,7 +14,7 @@ app = Flask(__name__)
 
 # ------------------- Config -------------------
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
-BUCKET_NAME = "lotteryview.firebasestorage.app" 
+BUCKET_NAME = "lotteryview.firebasestorage.app"
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -130,6 +129,27 @@ def save_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ------------------ ฟังก์ชันคำนวณหลักเลข ------------------------
+def get_tens_digit(number: int) -> int:
+    return (int(number) // 10) % 10
+
+def get_hundreds_digit(number: int) -> int:
+    return (int(number) // 100) % 10
+
+def get_digits(number: int, start: int, end: int) -> int:
+    part = int(number) // (10 ** (start - 1))
+    return part % (10 ** (end - start + 1))
+
+def get_hundred_thousands_digit(number: int) -> int:
+    return (int(number) // 100000) % 10
+
+def update_search_index(index_type, num, user_id, ticket_id):
+    if not num:
+        return
+    db.collection("search_index").document(index_type).collection(num).document(user_id).set({
+        ticket_id: True
+    })
+
 # ------------------- Save Image + Ticket -------------------
 @app.route("/save_image", methods=["POST"])
 def save_image():
@@ -137,14 +157,12 @@ def save_image():
         data = request.json
         user_id = data.get("user_id")
         image_base64 = data.get("image_base64")
-        #number6 = str(data.get("number6")).strip()
         number6 = data.get("number6")
         quantity = data.get("quantity")
 
         if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        # -------------------------------------------
         image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
@@ -159,7 +177,6 @@ def save_image():
         image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
 
-        # -------------------------------------------
         doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
@@ -167,61 +184,18 @@ def save_image():
             "quantity": quantity,
             "created_at": datetime.utcnow()
         })
-        #------------------หาหลักสิบ ------------------------
-        def get_tens_digit(number: int) -> int: 
-         return (number // 10) % 10
-        #---------------- หาหลักร้อย , 3ตัวท้าย-------------------------
-        def get_hundreds_digit(number: int) -> int:
-         return (number // 100) % 10
-        #---------------3ตัวหน้า------------------------------------
-        def get_digits(number: int, start: int, end: int) -> int:
-        # ตัดเลขที่เกินด้านขวาทิ้งก่อน
-         part = number // (10 ** (start - 1))
-         # เอาเฉพาะส่วนที่ต้องการ
-         return part % (10 ** (end - start + 1))
-        #----------------หาหลักแสน--------------------------
-        def get_hundred_thousands_digit(number: int) -> int:
-         return (number // 100000) % 10
-        # ---------------- Update Search Index ----------------
-        def update_search_index(index_type, num, user_id, ticket_id):
-            if not num:
-                return
-            db.collection("search_index").document(index_type).collection(num).document(user_id).set({
-                ticket_id: True })
 
-        if get_tens_digit(int(number6))==0:update_search_index("0_ten", number6, user_id, ticket_id) # หลักสิบเป็น 0
-        if get_tens_digit(int(number6))==1:update_search_index("1_ten", number6, user_id, ticket_id) # หลักสิบเป็น 1
-        if get_tens_digit(int(number6))==2:update_search_index("2_ten", number6, user_id, ticket_id) # หลักสิบเป็น 2
-        if get_tens_digit(int(number6))==3:update_search_index("3_ten", number6, user_id, ticket_id) # หลักสิบเป็น 3
-        if get_tens_digit(int(number6))==4:update_search_index("4_ten", number6, user_id, ticket_id) # หลักสิบเป็น 4
-        if get_tens_digit(int(number6))==5:update_search_index("5_ten", number6, user_id, ticket_id) # หลักสิบเป็น 5
-        if get_tens_digit(int(number6))==6:update_search_index("6_ten", number6, user_id, ticket_id) # หลักสิบเป็น 6
-        if get_tens_digit(int(number6))==7:update_search_index("7_ten", number6, user_id, ticket_id) # หลักสิบเป็น 7
-        if get_tens_digit(int(number6))==8:update_search_index("8_ten", number6, user_id, ticket_id) # หลักสิบเป็น 8
-        if get_tens_digit(int(number6))==9:update_search_index("9_ten", number6, user_id, ticket_id) # หลักสิบเป็น 9
+        # แปลงเลขครั้งเดียว
+        number6_int = int(number6)
 
-        if get_hundreds_digit(int(number6))==0:update_search_index("0_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 0
-        if get_hundreds_digit(int(number6))==1:update_search_index("1_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 1
-        if get_hundreds_digit(int(number6))==2:update_search_index("2_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 2
-        if get_hundreds_digit(int(number6))==3:update_search_index("3_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 3
-        if get_hundreds_digit(int(number6))==4:update_search_index("4_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 4
-        if get_hundreds_digit(int(number6))==5:update_search_index("5_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 5
-        if get_hundreds_digit(int(number6))==6:update_search_index("6_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 6
-        if get_hundreds_digit(int(number6))==7:update_search_index("7_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 7
-        if get_hundreds_digit(int(number6))==8:update_search_index("8_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 8
-        if get_hundreds_digit(int(number6))==9:update_search_index("9_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 9
-
-        if get_hundred_thousands_digit(int(number6))==0:update_search_index("0_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 0
-        if get_hundred_thousands_digit(int(number6))==1:update_search_index("1_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 1
-        if get_hundred_thousands_digit(int(number6))==2:update_search_index("2_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 2
-        if get_hundred_thousands_digit(int(number6))==3:update_search_index("3_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 3
-        if get_hundred_thousands_digit(int(number6))==4:update_search_index("4_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 4
-        if get_hundred_thousands_digit(int(number6))==5:update_search_index("5_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 5
-        if get_hundred_thousands_digit(int(number6))==6:update_search_index("6_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 6
-        if get_hundred_thousands_digit(int(number6))==7:update_search_index("7_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 7
-        if get_hundred_thousands_digit(int(number6))==8:update_search_index("8_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 8
-        if get_hundred_thousands_digit(int(number6))==9:update_search_index("9_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 9
-        
+        # ตรวจหลักสิบ หลักร้อย หลักแสน
+        for digit_type, func in [
+            ("ten", get_tens_digit),
+            ("hundreds", get_hundreds_digit),
+            ("hundred_thousands", get_hundred_thousands_digit)
+        ]:
+            digit_value = func(number6_int)
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
         return jsonify({
             "message": "บันทึกสำเร็จ",
