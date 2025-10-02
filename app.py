@@ -272,13 +272,13 @@ def search_number():
                            match_type = "2 ตัวล่าง"
 
                         if search_len == 3:
-                         if number == number6[-3:]:
-                            match_type = "3 ตัวบน"
-                         if number == number6[:3]:
-                             match_type = "3 ตัวล่าง"
+                          if number == number6[-3:]:
+                              match_type = "3 ตัวบน"
+                          if number == number6[:3]:
+                              match_type = "3 ตัวล่าง"
 
-                         if search_len == 6 and number == number6[-6:]:
-                           match_type = "6 ตัวล่าง"
+                        if search_len == 6 and number == number6:
+                            match_type = "6 ตัวตรง"
 
                         if match_type:
                             results.append({
