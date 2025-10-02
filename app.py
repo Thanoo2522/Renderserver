@@ -267,18 +267,17 @@ def search_number():
                         number6 = ticket_data.get("number6", "")
                         match_type = None
 
-                        if search_len == 2:
-                            if number == number6[-2:]:
-                                match_type = "2 ตัวล่าง"
-                        elif search_len == 3:
-                            # เพิ่มตรวจสอบ "3 ตัวบน"
-                            if number == number6[-3:]:
-                                match_type = "3 ตัวบน"
-                            elif number == number6[:3]:
-                                match_type = "3 ตัวล่าง"
-                        elif search_len == 6:
-                            if number == number6:
-                                match_type = "6 ตัวตรง"
+                        if search_len == 2 and number == number6[-2:]:
+                         match_type = "2 ตัวล่าง"
+
+                         if search_len == 3 and number == number6[-3:]:
+                          match_type = "3 ตัวบน"
+
+                         if search_len == 3 and number == number6[:3]:
+                          match_type = "3 ตัวล่าง"
+
+                         if search_len == 6 and number == number6:
+                          match_type = "6 ตัวตรง"
 
                         if match_type:
                             results.append({
