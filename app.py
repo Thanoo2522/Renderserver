@@ -265,21 +265,23 @@ def search_number():
 
                         ticket_data = ticket_doc.to_dict()
                         number6 = ticket_data.get("number6", "")
-
-                        number6 = ticket_data.get("number6", "")
-
-                        number6_str = str(number6).zfill(6)  # เติมเลข 0 ข้างหน้า
+                        
                         match_type = None
+                        search_len = len(number)
 
-                        if search_len == 2 and number == number6_str[-2:]:
-                          match_type = "2 ตัวล่าง"
+                        if search_len == 2 and number == number6[-2:]:
+                           match_type = "2 ตัวล่าง"
+
+                        if search_len == 3 and number == number6[-3:]:
+                            match_type = "3 ตัวล่าง"
+                        
                         if search_len == 3:
-                           if number == number6_str[-3:]:
-                              match_type = "3 ตัวบน"
-                           if number == number6_str[:3]:
-                              match_type = "3 ตัวล่าง"
-                        if search_len == 6 and number == number6_str:
-                           match_type = "6 ตัวตรง"
+                            if number == str(number6 // 1000).zfill(3):
+                                match_type = "3 ตัวบน"
+
+                        if search_len == 6 and number == number6:
+                            match_type = "6 ตัวตรง"
+
                         if match_type:
                             results.append({
                                 "user_id": user_id,
