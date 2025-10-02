@@ -260,12 +260,25 @@ def search_number():
 
                         ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
+
                         if not ticket_doc.exists:
                             continue
 
+                        # ดึงข้อมูลผู้ใช้
+                        user_ref = db.collection("users").document(user_id)
+                        user_doc = user_ref.get()
+                        phone = ""
+                        name = ""
+                        shop = ""
+
+                        if user_doc.exists:
+                            user_data = user_doc.to_dict()
+                            phone = user_data.get("phone", "")
+                            name = user_data.get("user_name", "")
+                            shop = user_data.get("shop_name", "")
+
                         ticket_data = ticket_doc.to_dict()
                         number6_str = str(ticket_data.get("number6", "")).zfill(6)
-
                         match_type = None
 
                         if search_len == 2 and number == number6_str[-2:]:
@@ -281,37 +294,25 @@ def search_number():
                             match_type = "6 ตัวตรง"
 
                         if match_type:
-                          # ดึง phone, name, shop จาก users/{user_id}
-                          user_ref = db.collection("users").document(user_id)
-                          user_doc = user_ref.get()
-                          phone = ""
-                          name = ""
-                          shop = ""
+                            results.append({
+                                "user_id": user_id,
+                                "ticket_id": ticket_id,
+                                "image_url": ticket_data.get("image_url"),
+                                "number6": number6_str,
+                                "quantity": ticket_data.get("quantity"),
+                                "phone": phone,
+                                "name": name,
+                                "shop": shop,
+                                "match_type": match_type
+                            })
+                            found_tickets.add(ticket_id)
 
-                        if user_doc.exists:
-                           user_data = user_doc.to_dict()
-                           phone = user_data.get("phone", "")
-                           name = user_data.get("user_name", "")
-                           shop = user_data.get("shop_name", "")
-
-                        results.append({
-                        "user_id": user_id,
-                        "ticket_id": ticket_id,
-                        "image_url": ticket_data.get("image_url"),
-                        "number6": number6_str,
-                        "quantity": ticket_data.get("quantity"),
-                        "match_type": match_type,
-                        "phone": phone,
-                        "name": name,
-                        "shop": shop
-                                   })
-                        found_tickets.add(ticket_id)
-
-                    return jsonify({"results": results}), 200
+        return jsonify({"results": results}), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
