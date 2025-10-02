@@ -275,8 +275,7 @@ def search_number():
                         if search_len == 3 and number == number6[-3:]:
                             match_type = "3 ตัวล่าง"
                         
-                        if search_len == 3:
-                            if int(number) == int(number6[:3]):
+                        if search_len == 3 and int(number) == int(number6[:3]):
                                match_type = "3 ตัวบน"
 
                         if search_len == 6 and number == number6:
