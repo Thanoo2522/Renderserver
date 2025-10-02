@@ -189,38 +189,38 @@ def save_image():
             db.collection("search_index").document(index_type).collection(num).document(user_id).set({
                 ticket_id: True
             })
-        if get_tens_digit(number6)==0:update_search_index("0_ten", number6, user_id, ticket_id) # หลักสิบเป็น 0
-        if get_tens_digit(number6)==1:update_search_index("1_ten", number6, user_id, ticket_id) # หลักสิบเป็น 1
-        if get_tens_digit(number6)==2:update_search_index("2_ten", number6, user_id, ticket_id) # หลักสิบเป็น 2
-        if get_tens_digit(number6)==3:update_search_index("3_ten", number6, user_id, ticket_id) # หลักสิบเป็น 3
-        if get_tens_digit(number6)==4:update_search_index("4_ten", number6, user_id, ticket_id) # หลักสิบเป็น 4
-        if get_tens_digit(number6)==5:update_search_index("5_ten", number6, user_id, ticket_id) # หลักสิบเป็น 5
-        if get_tens_digit(number6)==6:update_search_index("6_ten", number6, user_id, ticket_id) # หลักสิบเป็น 6
-        if get_tens_digit(number6)==7:update_search_index("7_ten", number6, user_id, ticket_id) # หลักสิบเป็น 7
-        if get_tens_digit(number6)==8:update_search_index("8_ten", number6, user_id, ticket_id) # หลักสิบเป็น 8
-        if get_tens_digit(number6)==9:update_search_index("9_ten", number6, user_id, ticket_id) # หลักสิบเป็น 9
+        if get_tens_digit(int.number6)==0:update_search_index("0_ten", number6, user_id, ticket_id) # หลักสิบเป็น 0
+        if get_tens_digit(int.number6)==1:update_search_index("1_ten", number6, user_id, ticket_id) # หลักสิบเป็น 1
+        if get_tens_digit(int.number6)==2:update_search_index("2_ten", number6, user_id, ticket_id) # หลักสิบเป็น 2
+        if get_tens_digit(int.number6)==3:update_search_index("3_ten", number6, user_id, ticket_id) # หลักสิบเป็น 3
+        if get_tens_digit(int.number6)==4:update_search_index("4_ten", number6, user_id, ticket_id) # หลักสิบเป็น 4
+        if get_tens_digit(int.number6)==5:update_search_index("5_ten", number6, user_id, ticket_id) # หลักสิบเป็น 5
+        if get_tens_digit(int.number6)==6:update_search_index("6_ten", number6, user_id, ticket_id) # หลักสิบเป็น 6
+        if get_tens_digit(int.number6)==7:update_search_index("7_ten", number6, user_id, ticket_id) # หลักสิบเป็น 7
+        if get_tens_digit(int.number6)==8:update_search_index("8_ten", number6, user_id, ticket_id) # หลักสิบเป็น 8
+        if get_tens_digit(int.number6)==9:update_search_index("9_ten", number6, user_id, ticket_id) # หลักสิบเป็น 9
 
-        if get_hundreds_digit(number6)==0:update_search_index("0_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 0
-        if get_hundreds_digit(number6)==1:update_search_index("1_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 1
-        if get_hundreds_digit(number6)==2:update_search_index("2_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 2
-        if get_hundreds_digit(number6)==3:update_search_index("3_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 3
-        if get_hundreds_digit(number6)==4:update_search_index("4_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 4
-        if get_hundreds_digit(number6)==5:update_search_index("5_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 5
-        if get_hundreds_digit(number6)==6:update_search_index("6_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 6
-        if get_hundreds_digit(number6)==7:update_search_index("7_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 7
-        if get_hundreds_digit(number6)==8:update_search_index("8_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 8
-        if get_hundreds_digit(number6)==9:update_search_index("9_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 9
+        if get_hundreds_digit(int.number6)==0:update_search_index("0_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 0
+        if get_hundreds_digit(int.number6)==1:update_search_index("1_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 1
+        if get_hundreds_digit(int.number6)==2:update_search_index("2_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 2
+        if get_hundreds_digit(int.number6)==3:update_search_index("3_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 3
+        if get_hundreds_digit(int.number6)==4:update_search_index("4_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 4
+        if get_hundreds_digit(int.number6)==5:update_search_index("5_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 5
+        if get_hundreds_digit(int.number6)==6:update_search_index("6_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 6
+        if get_hundreds_digit(int.number6)==7:update_search_index("7_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 7
+        if get_hundreds_digit(int.number6)==8:update_search_index("8_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 8
+        if get_hundreds_digit(int.number6)==9:update_search_index("9_hundreds", number6, user_id, ticket_id) # หลักร้อยเป็น 9
 
-        if get_hundred_thousands_digit(number6)==0:update_search_index("0_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 0
-        if get_hundred_thousands_digit(number6)==1:update_search_index("1_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 1
-        if get_hundred_thousands_digit(number6)==2:update_search_index("2_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 2
-        if get_hundred_thousands_digit(number6)==3:update_search_index("3_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 3
-        if get_hundred_thousands_digit(number6)==4:update_search_index("4_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 4
-        if get_hundred_thousands_digit(number6)==5:update_search_index("5_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 5
-        if get_hundred_thousands_digit(number6)==6:update_search_index("6_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 6
-        if get_hundred_thousands_digit(number6)==7:update_search_index("7_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 7
-        if get_hundred_thousands_digit(number6)==8:update_search_index("8_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 8
-        if get_hundred_thousands_digit(number6)==9:update_search_index("9_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 9
+        if get_hundred_thousands_digit(int.number6)==0:update_search_index("0_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 0
+        if get_hundred_thousands_digit(int.number6)==1:update_search_index("1_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 1
+        if get_hundred_thousands_digit(int.number6)==2:update_search_index("2_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 2
+        if get_hundred_thousands_digit(int.number6)==3:update_search_index("3_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 3
+        if get_hundred_thousands_digit(int.number6)==4:update_search_index("4_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 4
+        if get_hundred_thousands_digit(int.number6)==5:update_search_index("5_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 5
+        if get_hundred_thousands_digit(int.number6)==6:update_search_index("6_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 6
+        if get_hundred_thousands_digit(int.number6)==7:update_search_index("7_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 7
+        if get_hundred_thousands_digit(int.number6)==8:update_search_index("8_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 8
+        if get_hundred_thousands_digit(int.number6)==9:update_search_index("9_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 9
         
 
          
