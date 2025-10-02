@@ -277,8 +277,8 @@ def search_number():
                          if number == number6[:3]:
                              match_type = "3 ตัวล่าง"
 
-                         if number == number6:
-                               match_type = "6 ตัวตรง"
+                         if search_len == 6 and number == number6[-6:]:
+                           match_type = "6 ตัวล่าง"
 
                         if match_type:
                             results.append({
