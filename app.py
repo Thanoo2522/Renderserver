@@ -211,6 +211,7 @@ def save_image():
         return jsonify({"error": str(e)}), 500
 
 # ------------------- Search Ticket -------------------
+ # ------------------- Search Ticket -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
     try:
@@ -234,8 +235,15 @@ def search_number():
 
         results = []
 
-        for idx in index_types:
-            idx_col = db.collection("search_index").document(idx).collection(number)
+        # ค้นหาโดยใช้หลักสิบ หลักร้อย หลักแสนเหมือน save_image
+        for digit_type, func in [
+            ("ten", get_tens_digit),
+            ("hundreds", get_hundreds_digit),
+            ("hundred_thousands", get_hundred_thousands_digit)
+        ]:
+            digit_value = func(int(number))
+            index_name = f"{digit_value}_{digit_type}"
+            idx_col = db.collection("search_index").document(index_name).collection(number)
             docs = idx_col.stream()
 
             for doc in docs:
@@ -253,10 +261,9 @@ def search_number():
                     match_type = None
 
                     if search_len == 2:
-                        if number == number6[-2:]:
-                            match_type = "2 ตัวบน"
-                        elif number == number6[:2]:
+                        if number == number6[2:]:
                             match_type = "2 ตัวล่าง"
+                        
                     elif search_len == 3:
                         if number == number6[-3:]:
                             match_type = "3 ตัวบน"
@@ -281,6 +288,7 @@ def search_number():
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
