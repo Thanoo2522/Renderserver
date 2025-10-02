@@ -235,59 +235,65 @@ def search_number():
 
         results = []
 
-        # ค้นหาโดยใช้หลักสิบ หลักร้อย หลักแสนเหมือน save_image
         for digit_type, func in [
             ("ten", get_tens_digit),
             ("hundreds", get_hundreds_digit),
             ("hundred_thousands", get_hundred_thousands_digit)
         ]:
-            digit_value = func(int(number6))
+            digit_value = func(int(number))
             index_name = f"{digit_value}_{digit_type}"
-            idx_col = db.collection("search_index").document(index_name).collection(number6)
-            docs = idx_col.stream()
 
-            for doc in docs:
-                user_id = doc.id
-                tickets = doc.to_dict()
+            # ❗ แก้ตรงนี้: ใช้ชื่อ collection ถูกต้อง และดึงข้อมูลทั้งหมด
+            idx_col_ref = db.collection("search_index").document(index_name)
+            
+            # ดึงทุก subcollection ใน document นี้
+            subcollections = idx_col_ref.collections()
 
-                for ticket_id in tickets.keys():
-                    ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
-                    ticket_doc = ticket_ref.get()
-                    if not ticket_doc.exists:
-                        continue
+            for subcol in subcollections:
+                docs = list(subcol.stream())  # ดึงข้อมูลทั้งหมดมาเก็บใน list
 
-                    ticket_data = ticket_doc.to_dict()
-                    number6 = ticket_data.get("number6", "")
-                    match_type = None
+                for doc in docs:
+                    user_id = doc.id
+                    tickets = doc.to_dict()
 
-                    if search_len == 2:
-                        if number == number6[2:]:
-                            match_type = "2 ตัวล่าง"
-                        
-                    elif search_len == 3:
-                        if number == number6[-3:]:
-                            match_type = "3 ตัวบน"
-                        elif number == number6[:3]:
-                            match_type = "3 ตัวล่าง"
-                    elif search_len == 6:
-                        if number == number6:
-                            match_type = "6 ตัวตรง"
+                    for ticket_id in tickets.keys():
+                        ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
+                        ticket_doc = ticket_ref.get()
+                        if not ticket_doc.exists:
+                            continue
 
-                    if match_type:
-                        results.append({
-                            "user_id": user_id,
-                            "ticket_id": ticket_id,
-                            "image_url": ticket_data.get("image_url"),
-                            "number6": number6,
-                            "quantity": ticket_data.get("quantity"),
-                            "match_type": match_type
-                        })
+                        ticket_data = ticket_doc.to_dict()
+                        number6 = ticket_data.get("number6", "")
+                        match_type = None
+
+                        if search_len == 2:
+                            if number == number6[2:]:
+                                match_type = "2 ตัวล่าง"
+                        elif search_len == 3:
+                            if number == number6[-3:]:
+                                match_type = "3 ตัวบน"
+                            elif number == number6[:3]:
+                                match_type = "3 ตัวล่าง"
+                        elif search_len == 6:
+                            if number == number6:
+                                match_type = "6 ตัวตรง"
+
+                        if match_type:
+                            results.append({
+                                "user_id": user_id,
+                                "ticket_id": ticket_id,
+                                "image_url": ticket_data.get("image_url"),
+                                "number6": number6,
+                                "quantity": ticket_data.get("quantity"),
+                                "match_type": match_type
+                            })
 
         return jsonify({"results": results}), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
 
 
 # ------------------- Run -------------------
