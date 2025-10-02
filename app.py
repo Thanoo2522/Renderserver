@@ -187,9 +187,9 @@ def save_image():
             if not num:
                 return
             db.collection("search_index").document(index_type).collection(num).document(user_id).set({
-                ticket_id: True
-            })
-         if get_tens_digit(int(number6))==0:update_search_index("0_ten", number6, user_id, ticket_id) # หลักสิบเป็น 0
+                ticket_id: True })
+
+        if get_tens_digit(int(number6))==0:update_search_index("0_ten", number6, user_id, ticket_id) # หลักสิบเป็น 0
         if get_tens_digit(int(number6))==1:update_search_index("1_ten", number6, user_id, ticket_id) # หลักสิบเป็น 1
         if get_tens_digit(int(number6))==2:update_search_index("2_ten", number6, user_id, ticket_id) # หลักสิบเป็น 2
         if get_tens_digit(int(number6))==3:update_search_index("3_ten", number6, user_id, ticket_id) # หลักสิบเป็น 3
@@ -222,8 +222,6 @@ def save_image():
         if get_hundred_thousands_digit(int(number6))==8:update_search_index("8_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 8
         if get_hundred_thousands_digit(int(number6))==9:update_search_index("9_hundred_thousands", number6, user_id, ticket_id) # หลักแสนเป็น 9
         
-
-         
 
         return jsonify({
             "message": "บันทึกสำเร็จ",
