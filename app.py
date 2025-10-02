@@ -244,9 +244,7 @@ def search_number():
             digit_value = func(int(number))
             index_name = f"{digit_value}_{digit_type}"
 
-            # ❗ ใช้ชื่อ collection ถูกต้อง และดึงข้อมูลทั้งหมด
             idx_col_ref = db.collection("search_index").document(index_name)
-
             subcollections = list(idx_col_ref.collections())  # ดึงทุก subcollection
 
             for subcol in subcollections:
@@ -273,6 +271,7 @@ def search_number():
                             if number == number6[-2:]:
                                 match_type = "2 ตัวล่าง"
                         elif search_len == 3:
+                            # เพิ่มตรวจสอบ "3 ตัวบน"
                             if number == number6[-3:]:
                                 match_type = "3 ตัวบน"
                             elif number == number6[:3]:
