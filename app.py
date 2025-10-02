@@ -266,18 +266,19 @@ def search_number():
                         ticket_data = ticket_doc.to_dict()
                         number6 = ticket_data.get("number6", "")
                         match_type = None
+                        search_len = len(number)
 
                         if search_len == 2 and number == number6[-2:]:
-                         match_type = "2 ตัวล่าง"
+                           match_type = "2 ตัวล่าง"
 
-                         if search_len == 3 and number == number6[-3:]:
-                          match_type = "3 ตัวบน"
-
-                         if search_len == 3 and number == number6[:3]:
-                          match_type = "3 ตัวล่าง"
+                        if search_len == 3:
+                         if number == number6[-3:]:
+                            match_type = "3 ตัวบน"
+                         if number == number6[:3]:
+                             match_type = "3 ตัวล่าง"
 
                          if search_len == 6 and number == number6:
-                          match_type = "6 ตัวตรง"
+                               match_type = "6 ตัวตรง"
 
                         if match_type:
                             results.append({
