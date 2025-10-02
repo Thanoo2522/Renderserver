@@ -193,22 +193,17 @@ def save_image():
         number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
 
         # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
-        for digit_type, func in [
-            ("ten", get_tens_digit),
-            ("hundreds", get_hundreds_digit),
-            ("hundred_thousands", get_hundred_thousands_digit)
-        ]:
-            digit_value = func(number6_int)
-            print(f"🔍 {digit_type}: {digit_value} จากหมายเลข {number6}")
-            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+
+        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+
+        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
         return jsonify({
-            "message": "บันทึกสำเร็จ",
-            "ticket_id": ticket_id,
-            "image_url": image_url,
-            "ten_digit": get_tens_digit(number6_int),
-            "hundreds_digit": get_hundreds_digit(number6_int),
-            "hundred_thousands_digit": get_hundred_thousands_digit(number6_int)
+            "message": "บันทึกสำเร็จ"
         }), 200
 
     except Exception as e:
