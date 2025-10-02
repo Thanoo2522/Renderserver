@@ -216,7 +216,7 @@ def save_image():
 def search_number():
     try:
         data = request.json
-        number = str(data.get("number")).strip()
+        number = data.get("number")
 
         if not number:
             return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
@@ -241,9 +241,9 @@ def search_number():
             ("hundreds", get_hundreds_digit),
             ("hundred_thousands", get_hundred_thousands_digit)
         ]:
-            digit_value = func(int(number))
+            digit_value = func(int(number6))
             index_name = f"{digit_value}_{digit_type}"
-            idx_col = db.collection("search_index").document(index_name).collection(number)
+            idx_col = db.collection("search_index").document(index_name).collection(number6)
             docs = idx_col.stream()
 
             for doc in docs:
