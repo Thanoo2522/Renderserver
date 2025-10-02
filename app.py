@@ -276,8 +276,8 @@ def search_number():
                             match_type = "3 ตัวล่าง"
                         
                         if search_len == 3:
-                            if number == str(int(number6) // 1000).zfill(3):
-                             match_type = "3 ตัวบน"
+                            if int(number) == int(number6[:3]):
+                               match_type = "3 ตัวบน"
 
                         if search_len == 6 and number == number6:
                             match_type = "6 ตัวตรง"
