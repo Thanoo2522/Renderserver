@@ -234,6 +234,7 @@ def search_number():
             return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
 
         results = []
+        found_tickets = set()  # เก็บ ticket_id ที่เจอแล้ว
 
         for digit_type, func in [
             ("ten", get_tens_digit),
@@ -243,20 +244,22 @@ def search_number():
             digit_value = func(int(number))
             index_name = f"{digit_value}_{digit_type}"
 
-            # ❗ แก้ตรงนี้: ใช้ชื่อ collection ถูกต้อง และดึงข้อมูลทั้งหมด
+            # ❗ ใช้ชื่อ collection ถูกต้อง และดึงข้อมูลทั้งหมด
             idx_col_ref = db.collection("search_index").document(index_name)
-            
-            # ดึงทุก subcollection ใน document นี้
-            subcollections = idx_col_ref.collections()
+
+            subcollections = list(idx_col_ref.collections())  # ดึงทุก subcollection
 
             for subcol in subcollections:
-                docs = list(subcol.stream())  # ดึงข้อมูลทั้งหมดมาเก็บใน list
+                docs = list(subcol.stream())
 
                 for doc in docs:
                     user_id = doc.id
                     tickets = doc.to_dict()
 
                     for ticket_id in tickets.keys():
+                        if ticket_id in found_tickets:
+                            continue  # ข้ามถ้าเจอแล้ว
+
                         ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
                         if not ticket_doc.exists:
@@ -267,7 +270,7 @@ def search_number():
                         match_type = None
 
                         if search_len == 2:
-                            if number == number6[2:]:
+                            if number == number6[-2:]:
                                 match_type = "2 ตัวล่าง"
                         elif search_len == 3:
                             if number == number6[-3:]:
@@ -287,12 +290,14 @@ def search_number():
                                 "quantity": ticket_data.get("quantity"),
                                 "match_type": match_type
                             })
+                            found_tickets.add(ticket_id)  # เพิ่ม ticket_id ใน set
 
         return jsonify({"results": results}), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
 
 
 
