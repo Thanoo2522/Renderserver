@@ -264,21 +264,20 @@ def search_number():
                             continue
 
                         ticket_data = ticket_doc.to_dict()
-                        number6 = ticket_data.get("number6", "")
-                        
+                        number6_str = str(ticket_data.get("number6", "")).zfill(6)
+
                         match_type = None
-                        search_len = len(number)
 
-                        if search_len == 2 and number == number6[-2:]:
-                           match_type = "2 ตัวล่าง"
+                        if search_len == 2 and number == number6_str[-2:]:
+                            match_type = "2 ตัวล่าง"
 
-                        if search_len == 3 and number == number6[-3:]:
+                        if search_len == 3 and number == number6_str[:3]:
+                            match_type = "3 ตัวบน"
+
+                        if search_len == 3 and number == number6_str[-3:]:
                             match_type = "3 ตัวล่าง"
-                        
-                        if search_len == 3 and int(number) == int(number6[:3]):
-                               match_type = "3 ตัวบน"
 
-                        if search_len == 6 and number == number6:
+                        if search_len == 6 and number == number6_str:
                             match_type = "6 ตัวตรง"
 
                         if match_type:
@@ -286,7 +285,7 @@ def search_number():
                                 "user_id": user_id,
                                 "ticket_id": ticket_id,
                                 "image_url": ticket_data.get("image_url"),
-                                "number6": number6,
+                                "number6": number6_str,
                                 "quantity": ticket_data.get("quantity"),
                                 "match_type": match_type
                             })
@@ -297,9 +296,6 @@ def search_number():
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-
-
-
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
