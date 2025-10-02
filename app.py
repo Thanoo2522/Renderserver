@@ -281,15 +281,28 @@ def search_number():
                             match_type = "6 ตัวตรง"
 
                         if match_type:
-                            results.append({
-                                "user_id": user_id,
+                           # ดึง phone จาก users/{user_id}
+                           user_ref = db.collection("users").document(user_id)
+                           user_doc = user_ref.get()
+                           phone = ""
+                           name = ""
+                           shop = ""
+                           if user_doc.exists:
+                              phone = user_doc.to_dict().get("phone", "")
+                              name = user_doc.to_dict().get("user_name", "")
+                              shop = user_doc.to_dict().get("shop_name", "")
+                        results.append({
+                               "user_id": user_id,
                                 "ticket_id": ticket_id,
                                 "image_url": ticket_data.get("image_url"),
-                                "number6": number6_str,
+                                 "number6": number6_str,
                                 "quantity": ticket_data.get("quantity"),
-                                "match_type": match_type
-                            })
-                            found_tickets.add(ticket_id)  # เพิ่ม ticket_id ใน set
+                                "match_type": match_type,
+                                   "phone": phone,
+                                    "name": name,
+                                    "shop": shop
+                                          })
+                        found_tickets.add(ticket_id)
 
         return jsonify({"results": results}), 200
 
