@@ -138,7 +138,7 @@ def save_image():
         user_id = data.get("user_id")
         image_base64 = data.get("image_base64")
         #number6 = str(data.get("number6")).strip()
-        number6 = str(data.get("number6")).strip()
+        number6 = data.get("number6")
         quantity = data.get("quantity")
 
         if not user_id or not image_base64 or not number6 or not quantity:
@@ -170,9 +170,15 @@ def save_image():
         #------------------หาหลักสิบ ------------------------
         def get_tens_digit(number: int) -> int: 
          return (number // 10) % 10
-        #---------------- หาหลักร้อย-------------------------
+        #---------------- หาหลักร้อย , 3ตัวท้าย-------------------------
         def get_hundreds_digit(number: int) -> int:
          return (number // 100) % 10
+        #---------------3ตัวหน้า------------------------------------
+        def get_digits(number: int, start: int, end: int) -> int:
+        # ตัดเลขที่เกินด้านขวาทิ้งก่อน
+         part = number // (10 ** (start - 1))
+         # เอาเฉพาะส่วนที่ต้องการ
+         return part % (10 ** (end - start + 1))
         #----------------หาหลักแสน--------------------------
         def get_hundred_thousands_digit(number: int) -> int:
          return (number // 100000) % 10
