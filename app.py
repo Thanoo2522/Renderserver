@@ -145,12 +145,17 @@ def get_hundred_thousands_digit(number: int) -> int:
 
 def update_search_index(index_type, num, user_id, ticket_id):
     if not num:
+        print("❌ update_search_index: num ว่าง")
         return
-    db.collection("search_index").document(index_type).collection(num).document(user_id).set({
-        ticket_id: True
-    })
+    try:
+        db.collection("search_index").document(index_type).collection(str(num)).document(user_id).set({
+            ticket_id: True
+        })
+        print(f"✅ บันทึก {index_type}/{num}/{user_id} สำเร็จ")
+    except Exception as e:
+        print(f"❌ Firestore error: {e}")
 
-# ------------------- Save Image + Ticket -------------------
+
 @app.route("/save_image", methods=["POST"])
 def save_image():
     try:
@@ -185,22 +190,25 @@ def save_image():
             "created_at": datetime.utcnow()
         })
 
-        # แปลงเลขครั้งเดียว
-        number6_int = int(number6)
+        number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
 
-        # ตรวจหลักสิบ หลักร้อย หลักแสน
+        # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
         for digit_type, func in [
             ("ten", get_tens_digit),
             ("hundreds", get_hundreds_digit),
             ("hundred_thousands", get_hundred_thousands_digit)
         ]:
             digit_value = func(number6_int)
+            print(f"🔍 {digit_type}: {digit_value} จากหมายเลข {number6}")
             update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
         return jsonify({
             "message": "บันทึกสำเร็จ",
             "ticket_id": ticket_id,
-            "image_url": image_url
+            "image_url": image_url,
+            "ten_digit": get_tens_digit(number6_int),
+            "hundreds_digit": get_hundreds_digit(number6_int),
+            "hundred_thousands_digit": get_hundred_thousands_digit(number6_int)
         }), 200
 
     except Exception as e:
