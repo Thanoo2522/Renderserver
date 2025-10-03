@@ -313,7 +313,36 @@ def search_number():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
+ # ---------------- อ่านข้แมูลจาก firestore แล้วส่งกลับ maui ----------------
+@app.route("/get_user", methods=["POST"])
+def get_user():
+    try: 
+        data = request.json
+        user_id = data.get("user_id")
 
+        if not user_id:
+            return jsonify({"error": "กรุณาส่ง user_id"}), 400
+
+        # ดึง document จาก Firestore
+        user_ref = db.collection("users").document(user_id)
+        user_doc = user_ref.get()
+
+        if not user_doc.exists:
+            return jsonify({"error": "ไม่พบข้อมูลผู้ใช้"}), 404
+
+        user_data = user_doc.to_dict()
+
+        # เลือกส่งเฉพาะ field ที่ต้องการ
+        result = {
+            "phone": user_data.get("phone"),
+            "shop_name": user_data.get("shop_name"),
+            "user_name": user_data.get("user_name")
+        }
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
