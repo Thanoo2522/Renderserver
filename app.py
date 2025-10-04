@@ -124,7 +124,8 @@ def save_user():
             "phone": phone
         })
 
-        return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
+        #return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
+        return jsonify({"message": "บันทึก profile สำเร็จ"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
