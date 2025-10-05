@@ -12,7 +12,7 @@ from firebase_admin import credentials, storage, firestore
 
 app = Flask(__name__)
 
-# ------------------- Config -------------------
+# ------------------- Config -------------------get_user
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
 BUCKET_NAME = "lotteryview.firebasestorage.app"
 
@@ -100,6 +100,38 @@ def list_images():
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+# ---------------- Route: ดึงข้อมูลเฉพาะฟิลด์ ----------------
+@app.route("/get_count", methods=["POST"])
+def get_count():
+    try:
+        data = request.json
+        user_id = data.get("user_id")
+
+        if not user_id:
+            return jsonify({"error": "ต้องระบุ user_id"}), 400
+
+        user_ref = db.collection("count_process").document(user_id)
+        doc = user_ref.get()
+
+        if not doc.exists:
+            return jsonify({"error": f"ไม่พบข้อมูลของ user_id: {user_id}"}), 404
+
+        user_data = doc.to_dict()
+
+        # ✅ กำหนดรูปแบบข้อมูลที่จะส่งกลับ
+        result = {
+            "numimage": user_data.get("numimage", 0),
+            "numcall": user_data.get("numcall", 0)
+        }
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)   
 # ---------------- บันทึกการนับภาพ นับการคลิกโทร ----------------
 @app.route("/save_count", methods=["POST"])
 def save_count():
