@@ -100,6 +100,32 @@ def list_images():
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+# ---------------- บันทึกการนับภาพ นับการคลิกโทร ----------------
+@app.route("/save_count", methods=["POST"])
+def save_count():
+    try:
+        data = request.json
+        user_id = data.get("user_id")
+        numimage = data.get("numimage", 0)
+        numcall = data.get("numcall", 0)
+
+        if not user_id:
+            return jsonify({"error": "ต้องระบุ user_id"}), 400
+
+        doc_ref = db.collection("count_process").document(user_id)
+        doc_ref.set({
+            "numimage": numimage,
+            "numcall": numcall
+        }, merge=True)  # merge=True จะอัปเดตเฉพาะฟิลด์ที่ส่งมา
+
+        return jsonify({"message": "บันทึกข้อมูลสำเร็จ", "user_id": user_id}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)        
 
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
