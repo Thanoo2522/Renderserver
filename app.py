@@ -411,62 +411,7 @@ def get_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 #-------------------------------------------
-# @app.route("/call_device", methods=["POST"])
-def call_device():
-    data = request.json
-    caller_id = data.get("caller_id")
-    receiver_id = data.get("receiver_id")
 
-    if not caller_id or not receiver_id:
-        return jsonify({"error": "Missing caller_id or receiver_id"}), 400
-
-    channel_name = f"call_{caller_id}_{receiver_id}"
-    uid = 0
-    role = 1
-    expire_time = int(time.time()) + 3600
-
-    token = RtcTokenBuilder.buildTokenWithUid(
-        AGORA_APP_ID,
-        AGORA_APP_CERTIFICATE,
-        channel_name,
-        uid,
-        role,
-        expire_time
-    )
-
-    db.collection("calls").document(receiver_id).set({
-        "caller_id": caller_id,
-        "channel_name": channel_name,
-        "token": token,
-        "status": "calling"
-    })
-
-    return jsonify({"message": "Call initiated", "channel_name": channel_name})
-
-
-@app.route("/check_call/<receiver_id>", methods=["GET"])
-def check_call(receiver_id):
-    doc = db.collection("calls").document(receiver_id).get()
-    if not doc.exists:
-        return jsonify({"status": "no_call"}), 404
-    return jsonify(doc.to_dict())
-
-
-@app.route("/accept_call", methods=["POST"])
-def accept_call():
-    data = request.json
-    receiver_id = data.get("receiver_id")
-
-    doc = db.collection("calls").document(receiver_id).get()
-    if not doc.exists:
-        return jsonify({"error": "No call found"}), 404
-
-    call_data = doc.to_dict()
-    return jsonify({"token": call_data["token"], "channel_name": call_data["channel_name"]})
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)    
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
