@@ -9,7 +9,6 @@ import time
 import requests
 import firebase_admin
 from firebase_admin import credentials, storage, firestore
- 
 
 app = Flask(__name__)
 
@@ -42,11 +41,17 @@ def ask_deepseek(filepath, question):
     }
     
     payload = {
-        "model": "deepseek-chat",  # DeepSeek-V3
+        "model": "deepseek-chat",
         "messages": [
             {
                 "role": "system",
-                "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพที่เชี่ยวชาญ"
+                "content": """จากภาพที่ให้มา:
+1. หาเลข 6 หลักที่ปรากฏในภาพ
+2. นับจำนวนใบหรือจำนวนครั้งที่เลขนั้นปรากฏ
+3. ตอบกลับเฉพาะตัวเลขเท่านั้น โดยให้:
+   - บรรทัดแรก: เลข 6 หลัก
+   - บรรทัดที่สอง: จำนวนใบ
+หากหาไม่พบหรือไม่แน่ใจ ให้ตอบ "ไม่พบข้อมูล" """
             },
             {
                 "role": "user", 
@@ -57,12 +62,13 @@ def ask_deepseek(filepath, question):
                     },
                     {
                         "type": "text",
-                        "text": question
+                        "text": "วิเคราะห์ภาพนี้ตามคำสั่งใน system prompt"
                     }
                 ]
             }
         ],
-        "max_tokens": 2048
+        "max_tokens": 100,  # ลดลงเพราะต้องการคำตอบสั้นๆ
+        "temperature": 0.1   # ลดความสุ่มเพื่อความแม่นยำ
     }
     
     try:
@@ -79,7 +85,10 @@ def ask_deepseek(filepath, question):
         
     except requests.exceptions.RequestException as e:
         print(f"❌ DeepSeek API Error: {e}")
-        return f"ขออภัย เกิดข้อผิดพลาดในการวิเคราะห์ภาพ: {str(e)}"
+        return "ไม่พบข้อมูล"
+    except Exception as e:
+        print(f"❌ Unexpected Error: {e}")
+        return "ไม่พบข้อมูล"
 
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -100,6 +109,12 @@ def upload_image():
         # ✅ ใช้ DeepSeek แทน OpenAI
         ai_answer = ask_deepseek(filepath, question)
 
+        # ลบไฟล์ชั่วคราวเพื่อประหยัดพื้นที่
+        try:
+            os.remove(filepath)
+        except:
+            pass
+
         return jsonify({
             "answer": ai_answer,
             "filename": filename
@@ -114,8 +129,6 @@ def index():
     return "✅ Server is running! (DeepSeek-V3 API mode)"
 
 # ------------------- Routes อื่นๆ ที่เหลือ -------------------
-# ... routes อื่นๆ ของคุณ ...
-
 @app.route("/upload_image/<filename>")
 def get_uploaded_image(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
@@ -129,6 +142,7 @@ def list_images():
         return jsonify({"images": urls})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 # ---------------- Route: ดึงข้อมูลเฉพาะฟิลด์ ----------------
 @app.route("/get_count", methods=["POST"])
 def get_count():
@@ -147,7 +161,6 @@ def get_count():
 
         user_data = doc.to_dict()
 
-        # ✅ กำหนดรูปแบบข้อมูลที่จะส่งกลับ
         result = {
             "numimage": user_data.get("numimage", 0),
             "numcall": user_data.get("numcall", 0)
@@ -158,9 +171,6 @@ def get_count():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)   
 # ---------------- บันทึกการนับภาพ นับการคลิกโทร ----------------
 @app.route("/save_count", methods=["POST"])
 def save_count():
@@ -177,16 +187,12 @@ def save_count():
         doc_ref.set({
             "numimage": numimage,
             "numcall": numcall
-        }, merge=True)  # merge=True จะอัปเดตเฉพาะฟิลด์ที่ส่งมา
+        }, merge=True)
 
         return jsonify({"message": "บันทึกข้อมูลสำเร็จ", "user_id": user_id}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)        
 
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
@@ -211,7 +217,6 @@ def save_user():
             "phone": phone
         })
 
-        #return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
         return jsonify({"message": "บันทึก profile สำเร็จ"}), 200
 
     except Exception as e:
@@ -242,7 +247,6 @@ def update_search_index(index_type, num, user_id, ticket_id):
         print(f"✅ บันทึก {index_type}/{num}/{user_id} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
-
 
 @app.route("/save_image", methods=["POST"])
 def save_image():
@@ -278,17 +282,20 @@ def save_image():
             "created_at": datetime.utcnow()
         })
 
-        number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
+        number6_int = int(number6)
 
         # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
-        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("ten", get_tens_digit)]:
+            digit_value = func(number6_int) 
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("hundreds", get_hundreds_digit)]:
+            digit_value = func(number6_int) 
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:
+            digit_value = func(number6_int) 
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
         return jsonify({
             "message": "บันทึกสำเร็จ"
@@ -299,7 +306,6 @@ def save_image():
         return jsonify({"error": str(e)}), 500
 
 # ------------------- Search Ticket -------------------
- # ------------------- Search Ticket -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
     try:
@@ -322,7 +328,7 @@ def search_number():
             return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
 
         results = []
-        found_tickets = set()  # เก็บ ticket_id ที่เจอแล้ว
+        found_tickets = set()
 
         for digit_type, func in [
             ("ten", get_tens_digit),
@@ -333,7 +339,7 @@ def search_number():
             index_name = f"{digit_value}_{digit_type}"
 
             idx_col_ref = db.collection("search_index").document(index_name)
-            subcollections = list(idx_col_ref.collections())  # ดึงทุก subcollection
+            subcollections = list(idx_col_ref.collections())
 
             for subcol in subcollections:
                 docs = list(subcol.stream())
@@ -344,7 +350,7 @@ def search_number():
 
                     for ticket_id in tickets.keys():
                         if ticket_id in found_tickets:
-                            continue  # ข้ามถ้าเจอแล้ว
+                            continue
 
                         ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
@@ -352,7 +358,6 @@ def search_number():
                         if not ticket_doc.exists:
                             continue
 
-                        # ดึงข้อมูลผู้ใช้
                         user_ref = db.collection("users").document(user_id)
                         user_doc = user_ref.get()
                         phone = ""
@@ -401,7 +406,7 @@ def search_number():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
- # ---------------- อ่านข้แมูลจาก firestore แล้วส่งกลับ maui ----------------
+# ---------------- อ่านข้แมูลจาก firestore แล้วส่งกลับ maui ----------------
 @app.route("/get_user", methods=["POST"])
 def get_user():
     try: 
@@ -411,7 +416,6 @@ def get_user():
         if not user_id:
             return jsonify({"error": "กรุณาส่ง user_id"}), 400
 
-        # ดึง document จาก Firestore
         user_ref = db.collection("users").document(user_id)
         user_doc = user_ref.get()
 
@@ -420,7 +424,6 @@ def get_user():
 
         user_data = user_doc.to_dict()
 
-        # เลือกส่งเฉพาะ field ที่ต้องการ
         result = {
             "phone": user_data.get("phone"),
             "shop_name": user_data.get("shop_name"),
@@ -431,7 +434,6 @@ def get_user():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-#-------------------------------------------
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
