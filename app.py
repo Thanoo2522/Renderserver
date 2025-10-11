@@ -3,18 +3,17 @@ import os
 import base64
 from datetime import datetime
 import traceback
-from openai import OpenAI
 import uuid
 import json
 import time
 import requests
 import firebase_admin
 from firebase_admin import credentials, storage, firestore
-from agora_token_builder import RtcTokenBuilder
+ 
 
 app = Flask(__name__)
 
-# ------------------- Config -------------------get_user
+# ------------------- Config -------------------
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
 BUCKET_NAME = "lotteryview.firebasestorage.app"
 
@@ -22,51 +21,65 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
-#--------------------------------
-AGORA_APP_ID = os.environ.get("AGORA_APP_ID")
-AGORA_APP_CERTIFICATE = os.environ.get("AGORA_APP_CERTIFICATE")
-if not service_account_json or not AGORA_APP_ID or not AGORA_APP_CERTIFICATE:
-   raise ValueError("ต้องกำหนด FIREBASE_KEY_PATH, AGORA_APP_ID, AGORA_APP_CERTIFICATE")
-#-------------------------------
-#if not service_account_json:
- #   raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
-
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
 db = firestore.client()
 bucket = storage.bucket()
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("❌ ERROR: OPENAI_API_KEY is not set in environment")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
+if not DEEPSEEK_API_KEY:
+    raise ValueError("❌ ERROR: DEEPSEEK_API_KEY is not set in environment")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
-
-# ------------------- Routes -------------------
-@app.route("/")
-def index():
-    return "✅ Server is running! (OpenAI API mode)"
-
-# ------------------- ฟังก์ชันเรียก OpenAI -------------------
-def ask_openai(filepath, question):
+# ------------------- DeepSeek Function -------------------
+def ask_deepseek(filepath, question):
     with open(filepath, "rb") as f:
         image_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพ"},
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "model": "deepseek-chat",  # DeepSeek-V3
+        "messages": [
             {
-                "role": "user",
+                "role": "system",
+                "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพที่เชี่ยวชาญ"
+            },
+            {
+                "role": "user", 
                 "content": [
-                    {"type": "text", "text": question},
-                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
+                    {
+                        "type": "image_url",
+                        "image_url": f"data:image/jpeg;base64,{image_b64}"
+                    },
+                    {
+                        "type": "text",
+                        "text": question
+                    }
                 ]
             }
-        ]
-    )
-    return response.choices[0].message.content
+        ],
+        "max_tokens": 2048
+    }
+    
+    try:
+        response = requests.post(
+            "https://api.deepseek.com/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        
+        result = response.json()
+        return result["choices"][0]["message"]["content"]
+        
+    except requests.exceptions.RequestException as e:
+        print(f"❌ DeepSeek API Error: {e}")
+        return f"ขออภัย เกิดข้อผิดพลาดในการวิเคราะห์ภาพ: {str(e)}"
 
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
@@ -84,7 +97,8 @@ def upload_image():
         with open(filepath, "wb") as f:
             f.write(base64.b64decode(image_b64))
 
-        ai_answer = ask_openai(filepath, question)
+        # ✅ ใช้ DeepSeek แทน OpenAI
+        ai_answer = ask_deepseek(filepath, question)
 
         return jsonify({
             "answer": ai_answer,
@@ -94,6 +108,13 @@ def upload_image():
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
+@app.route("/")
+def index():
+    return "✅ Server is running! (DeepSeek-V3 API mode)"
+
+# ------------------- Routes อื่นๆ ที่เหลือ -------------------
+# ... routes อื่นๆ ของคุณ ...
 
 @app.route("/upload_image/<filename>")
 def get_uploaded_image(filename):
