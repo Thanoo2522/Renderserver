@@ -4,17 +4,19 @@ import base64
 from datetime import datetime
 import traceback
 from openai import OpenAI
-import uuid
 import json
-import time
-import requests
 import firebase_admin
 from firebase_admin import credentials, storage, firestore
-from agora_token_builder import RtcTokenBuilder
+
+from flask import Flask, request, jsonify, send_from_directory
+ 
+import uuid 
+import requests
+ 
 
 app = Flask(__name__)
 
-# ------------------- Config -------------------get_user
+# ------------------- Config -------------------
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
 BUCKET_NAME = "lotteryview.firebasestorage.app"
 
@@ -22,12 +24,6 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
-#--------------------------------
- 
-#-------------------------------
-#if not service_account_json:
- #   raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
-
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
@@ -43,17 +39,32 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 # ------------------- Routes -------------------
 @app.route("/")
 def index():
-    return "✅ Server is running! (OpenAI API mode)"
+    return "✅ Server is running! (GPT-4o-mini image analysis mode)"
 
-# ------------------- ฟังก์ชันเรียก OpenAI -------------------
-def ask_openai(filepath, question):
+# ------------------- ฟังก์ชันวิเคราะห์ภาพ -------------------
+def ask_openai(filepath):
+    """
+    วิเคราะห์ภาพเพื่อตรวจหา:
+    1. เลข 6 หลักของสลาก
+    2. จำนวนใบ (ข้อความเช่น '2 ใบ', '3 ใบ', '5 ใบ')
+    """
     with open(filepath, "rb") as f:
         image_b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    # คำสั่งที่ให้ AI วิเคราะห์
+    question = (
+        "จากภาพนี้ให้ตอบเป็น JSON เท่านั้น "
+        "โดยตรวจสอบว่า: "
+        "1. หาเลขสลากกินแบ่ง 6 หลักที่ชัดเจนที่สุด "
+        "2. อ่านจำนวนใบจากข้อความบนสลาก (เช่น '2 ใบ', '3 ใบ', '5 ใบ', '10 ใบ', '15 ใบ', '30 ใบ') "
+        "3. ถ้าไม่พบให้ใส่ค่า null "
+        "รูปแบบการตอบ: {\"number6\": \"xxxxxx\", \"count\": \"2 ใบ\"}"
+    )
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพ"},
+            {"role": "system", "content": "คุณเป็นผู้ช่วย OCR วิเคราะห์ภาพสลากกินแบ่งอย่างละเอียด"},
             {
                 "role": "user",
                 "content": [
@@ -63,15 +74,20 @@ def ask_openai(filepath, question):
             }
         ]
     )
-    return response.choices[0].message.content
 
-# ------------------- Upload Image -------------------
+    try:
+        content = response.choices[0].message.content.strip()
+        return json.loads(content)
+    except Exception:
+        # ถ้า AI ตอบเป็นข้อความธรรมดา ไม่ใช่ JSON
+        return {"number6": None, "count": None, "raw": response.choices[0].message.content}
+
+# ------------------- อัปโหลดและวิเคราะห์ภาพ -------------------
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
     try:
         data = request.json
         image_b64 = data.get("image_base64")
-        question = data.get("question", "")
 
         if not image_b64:
             return jsonify({"error": "No image provided"}), 400
@@ -81,11 +97,11 @@ def upload_image():
         with open(filepath, "wb") as f:
             f.write(base64.b64decode(image_b64))
 
-        ai_answer = ask_openai(filepath, question)
+        result = ask_openai(filepath)
 
         return jsonify({
-            "answer": ai_answer,
-            "filename": filename
+            "filename": filename,
+            "result": result
         })
 
     except Exception as e:
@@ -95,6 +111,7 @@ def upload_image():
 @app.route("/upload_image/<filename>")
 def get_uploaded_image(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
 
 @app.route("/list_images")
 def list_images():
