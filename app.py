@@ -51,9 +51,9 @@ def ask_openai(filepath, question):
         image_b64 = base64.b64encode(f.read()).decode("utf-8")
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o-mini",  # ใช้ GPT-4o-mini (Vision)
         messages=[
-            {"role": "system", "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพ"},
+            {"role": "system", "content": "คุณเป็นผู้ช่วยวิเคราะห์ภาพสลากกินแบ่งรัฐบาล ให้ตอบเฉพาะ JSON เท่านั้น"},
             {
                 "role": "user",
                 "content": [
@@ -61,9 +61,20 @@ def ask_openai(filepath, question):
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}}
                 ]
             }
-        ]
+        ],
+        temperature=0.1,  # ลดความสุ่มของคำตอบ
     )
-    return response.choices[0].message.content
+
+    raw_answer = response.choices[0].message.content.strip()
+
+    # ✅ ตัดเฉพาะส่วน JSON (ป้องกัน GPT พูดเกิน)
+    first_brace = raw_answer.find("{")
+    last_brace = raw_answer.rfind("}")
+    if first_brace != -1 and last_brace != -1:
+        raw_answer = raw_answer[first_brace:last_brace+1]
+
+    return raw_answer
+
 
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
