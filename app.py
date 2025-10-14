@@ -234,51 +234,54 @@ def update_search_index(index_type, num, user_id, ticket_id):
 @app.route("/save_image", methods=["POST"])
 def save_image():
     try:
-        data = request.json
+        data = request.get_json()
         user_id = data.get("user_id")
         image_base64 = data.get("image_base64")
         number6 = data.get("number6")
         quantity = data.get("quantity")
+        datetime_str = data.get("datetime")
 
-        if not user_id or not image_base64 or not number6 or not quantity:
+        # ✅ ตรวจสอบข้อมูลครบ
+        if not all([user_id, image_base64, number6, quantity]):
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
+        # ✅ แปลง base64 → ไฟล์ภาพ
         image_bytes = base64.b64decode(image_base64)
-        filename = f"{str(uuid.uuid4())}.jpg"
+        filename = f"{uuid.uuid4()}.jpg"
         filepath = os.path.join("/tmp", filename)
 
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
+        # ✅ อัปโหลดขึ้น Firebase Storage
         blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
-
         image_url = blob.public_url
-        ticket_id = str(uuid.uuid4())
 
+        # ✅ สร้าง document ใหม่ใน Firestore
+        ticket_id = str(uuid.uuid4())
         doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
             "quantity": quantity,
+            "datetime": datetime_str,
             "created_at": datetime.utcnow()
         })
 
-        number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
-
-        # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
-        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
-
-        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
-
-        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        # ✅ อัปเดต search index (เลขหลักสิบ, ร้อย, แสน)
+        try:
+            number6_int = int(number6)
+            update_search_index(f"{get_tens_digit(number6_int)}_ten", number6, user_id, ticket_id)
+            update_search_index(f"{get_hundreds_digit(number6_int)}_hundreds", number6, user_id, ticket_id)
+            update_search_index(f"{get_hundred_thousands_digit(number6_int)}_hundred_thousands", number6, user_id, ticket_id)
+        except ValueError:
+            print("⚠️ number6 ไม่ใช่ตัวเลขล้วน (skip update index)")
 
         return jsonify({
-            "message": "บันทึกสำเร็จ"
+            "message": "บันทึกสำเร็จ",
+            "image_url": image_url
         }), 200
 
     except Exception as e:
