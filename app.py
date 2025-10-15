@@ -75,7 +75,19 @@ def ask_openai(filepath, question):
 
     return raw_answer
 
+#--------------------- เช็คการเชื่อมต่อ firebas ----------
+@app.route("/check_firebase", methods=["GET"])
+def check_firebase():
+    try:
+        bucket = storage.bucket()
+        # ทดสอบ list ไฟล์ (เช็คว่าเชื่อมต่อได้จริง)
+        blobs = list(bucket.list_blobs(max_results=1))
+        return jsonify({"status": "connected", "bucket": BUCKET_NAME})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
