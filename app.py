@@ -187,6 +187,23 @@ def save_count():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)        
 
+#-----------------------update_status ของแแผงลอตเตอร์รี่  ----------------------------------
+@app.route("/update_status", methods=["POST"])
+def update_status():
+    try:
+        data = request.get_json()
+        user_id = data["userId"]
+        status = data["status"]  # "active" หรือ "nonactive"
+
+        doc_ref = db.collection("users").document(user_id)
+        doc_ref.update({"status": status})
+
+        return jsonify({"status": "success", "message": f"User {user_id} updated to {status}"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
+    
+ 
+ 
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
