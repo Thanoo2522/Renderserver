@@ -474,7 +474,24 @@ def get_user():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-#-------------------------------------------
+#------------ รับ sms-------------------------------
+@app.route("/sms_to_firestore", methods=["POST"])
+def sms_to_firestore():
+    data = request.get_json()
+    sender = data.get("sender")
+    message = data.get("message")
+
+    if not sender or not message:
+        return jsonify({"status": "error", "message": "Missing data"}), 400
+
+    # ✅ เพิ่มเข้า Firestore
+    db.collection("sms_messages").add({
+        "sender": sender,
+        "message": message,
+        "timestamp": firestore.SERVER_TIMESTAMP
+    })
+
+    return jsonify({"status": "success", "message": "SMS stored in Firestore"}), 200
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
