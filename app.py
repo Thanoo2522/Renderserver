@@ -202,7 +202,31 @@ def update_status():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
     
- 
+ #------------------- อ่านเฉพาะ field” -------------------------------------------------   
+@app.route("/get_field", methods=["POST"])
+def get_field():
+    try:
+        data = request.get_json()
+        user_id = data["userId"]
+        field_name = data["fieldName"]  # เช่น "status"
+
+        doc_ref = db.collection("users").document(user_id)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return jsonify({"status": "error", "message": "Document not found"}), 404
+
+        doc_data = doc.to_dict()
+        if field_name not in doc_data:
+            return jsonify({"status": "error", "message": f"Field '{field_name}' not found"}), 404
+
+        return jsonify({
+            "status": "success",
+            "field": field_name,
+            "value": doc_data[field_name]
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
  
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
