@@ -9,6 +9,7 @@ import json
 import time
 import requests
 import firebase_admin
+import logging
 from firebase_admin import credentials, storage, firestore
  
 
