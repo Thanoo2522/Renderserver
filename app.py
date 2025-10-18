@@ -10,6 +10,7 @@ import time
 import requests
 import firebase_admin
 import logging
+from datetime import datetime
 from firebase_admin import credentials, storage, firestore
  
 
@@ -476,7 +477,7 @@ def get_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 #------------ รับ sms-------------------------------
-@app.route("/sms_to_firestore", methods=["POST"])
+ @app.route("/sms_to_firestore", methods=["POST"])
 def sms_to_firestore():
     try:
         data = request.get_json(force=True)
@@ -484,26 +485,22 @@ def sms_to_firestore():
         message = data.get("message")
 
         if not sender or not message:
-            logging.warning("❌ Missing sender or message field")
+            logging.warning("Missing sender or message")
             return jsonify({"status": "error", "message": "Missing data"}), 400
 
-        # ✅ เพิ่มข้อมูลเข้า Firestore
-        doc_ref = db.collection("sms_messages").add({
+        db.collection("sms_messages").add({
             "sender": sender,
             "message": message,
             "timestamp": firestore.SERVER_TIMESTAMP,
-            "received_at": datetime.datetime.now().isoformat()
+            "received_at": datetime.now().isoformat()  # ✅ แก้ตรงนี้
         })
 
-        logging.info(f"✅ SMS stored from {sender}: {message}")
+        logging.info(f"SMS stored from {sender}: {message}")
         return jsonify({"status": "success", "message": "SMS stored in Firestore"}), 200
 
     except Exception as e:
-        logging.error(f"🔥 Error saving SMS: {e}")
+        logging.error(e)
         return jsonify({"status": "error", "message": str(e)}), 500
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
