@@ -477,7 +477,7 @@ def get_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 #------------ รับ sms-------------------------------
- @app.route("/sms_to_firestore", methods=["POST"])
+@app.route("/sms_to_firestore", methods=["POST"])
 def sms_to_firestore():
     try:
         data = request.get_json(force=True)
