@@ -477,21 +477,32 @@ def get_user():
 #------------ รับ sms-------------------------------
 @app.route("/sms_to_firestore", methods=["POST"])
 def sms_to_firestore():
-    data = request.get_json()
-    sender = data.get("sender")
-    message = data.get("message")
+    try:
+        data = request.get_json(force=True)
+        sender = data.get("sender")
+        message = data.get("message")
 
-    if not sender or not message:
-        return jsonify({"status": "error", "message": "Missing data"}), 400
+        if not sender or not message:
+            logging.warning("❌ Missing sender or message field")
+            return jsonify({"status": "error", "message": "Missing data"}), 400
 
-    # ✅ เพิ่มเข้า Firestore
-    db.collection("sms_messages").add({
-        "sender": sender,
-        "message": message,
-        "timestamp": firestore.SERVER_TIMESTAMP
-    })
+        # ✅ เพิ่มข้อมูลเข้า Firestore
+        doc_ref = db.collection("sms_messages").add({
+            "sender": sender,
+            "message": message,
+            "timestamp": firestore.SERVER_TIMESTAMP,
+            "received_at": datetime.datetime.now().isoformat()
+        })
 
-    return jsonify({"status": "success", "message": "SMS stored in Firestore"}), 200
+        logging.info(f"✅ SMS stored from {sender}: {message}")
+        return jsonify({"status": "success", "message": "SMS stored in Firestore"}), 200
+
+    except Exception as e:
+        logging.error(f"🔥 Error saving SMS: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
