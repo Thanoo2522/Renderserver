@@ -502,38 +502,30 @@ def sms_to_firestore():
         logging.error(e)
         return jsonify({"status": "error", "message": str(e)}), 500
 #---------------------------  sms to firestore ------------
-@app.route('/save_sms', methods=['POST'])
+@app.route("/save_sms", methods=["POST"])
 def save_sms():
-    data = request.get_json()
+    data = request.json
     device_id = data.get("deviceId")
-    message = data.get("message", "")
-
+    message = data.get("message")
     if not device_id or not message:
-        return jsonify({"error": "Missing deviceId or message"}), 400
+        return jsonify({"error": "deviceId or message missing"}), 400
 
-    # ✅ อ้างอิง document หลักตาม deviceId
     doc_ref = db.collection("bank_sms").document(device_id)
+    field_key = datetime.utcnow().strftime("sms_%Y%m%d%H%M%S")
+    doc_ref.set({field_key: message, "last_update": datetime.utcnow(), "last_message": message}, merge=True)
 
-    # ✅ อัปเดตข้อมูลล่าสุดใน document หลัก
-    doc_ref.set({
-        "deviceId": device_id,
-        "last_message": message,
-        "last_update": firestore.SERVER_TIMESTAMP
-    }, merge=True)
+    return jsonify({"status": "success", "field": field_key})
 
-    # ✅ เพิ่ม record ใหม่ทุกครั้งใน subcollection "history"
-    history_ref = doc_ref.collection("history")
-    history_ref.add({
-        "message": message,
-        "timestamp": firestore.SERVER_TIMESTAMP
-    })
+@app.route("/get_sms_fields/<device_id>", methods=["GET"])
+def get_sms_fields(device_id):
+    doc_ref = db.collection("bank_sms").document(device_id)
+    doc = doc_ref.get()
+    if doc.exists:
+        return jsonify(doc.to_dict())
+    return jsonify({"error": "device not found"}), 404
 
-    return jsonify({"status": "ok", "deviceId": device_id}), 200
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
-
+if __name__ == "__main__":
+    app.run(debug=True)
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
