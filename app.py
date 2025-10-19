@@ -502,44 +502,35 @@ def sms_to_firestore():
         logging.error(e)
         return jsonify({"status": "error", "message": str(e)}), 500
 #---------------------------  write gmail to firestore ------------
-# # ---- 2. Endpoint รับข้อมูลจาก Apps Script ----
 @app.route('/gmail-hook', methods=['POST'])
 def gmail_hook():
     try:
         data = request.get_json()
+        message_id = data.get("messageId")
 
-        if not data:
-            return jsonify({"error": "No JSON payload received"}), 400
+        # ตรวจว่ามี messageId นี้ใน Firestore แล้วหรือยัง
+        existing = db.collection("gmail_inbox").where("messageId", "==", message_id).get()
+        if existing:
+            print("⏩ Duplicate email, skipping...")
+            return jsonify({"message": "Duplicate email ignored"}), 200
 
-        # แปลงวันเวลาให้อยู่ในรูป string ที่ Firestore รองรับ
-        date_received = str(data.get("date", datetime.utcnow()))
-
-        # เตรียมข้อมูลสำหรับ Firestore
+        # บันทึกข้อมูลใหม่
         email_data = {
+            "messageId": message_id,
             "from": data.get("from"),
             "subject": data.get("subject"),
             "body": data.get("body"),
-            "date": date_received,
+            "date": str(data.get("date")),
             "created_at": datetime.utcnow()
         }
-
-        # ---- 3. เขียนข้อมูลลง Firestore ----
         db.collection("gmail_inbox").add(email_data)
 
-        print(f"✅ New email saved: {data.get('subject')}")
-        return jsonify({"message": "Email saved to Firestore"}), 200
+        print(f"✅ Saved new email: {data.get('subject')}")
+        return jsonify({"message": "Email saved"}), 200
 
     except Exception as e:
         print(f"❌ Error: {e}")
         return jsonify({"error": str(e)}), 500
-
-# ---- 4. Root สำหรับตรวจสอบว่าเซิร์ฟเวอร์ทำงาน ----
-@app.route('/')
-def home():
-    return "Gmail Trigger Flask Server is running 🚀"
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)    
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
