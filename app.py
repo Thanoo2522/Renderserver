@@ -511,8 +511,8 @@ def save_sms():
         return jsonify({"error": "No message provided"}), 400
 
     db.collection("bank_sms").add({
-        "message": message,
-        "timestamp": firestore.SERVER_TIMESTAMP
+        "message": message
+       
     })
     return jsonify({"status": "ok"}), 200
 
