@@ -511,15 +511,25 @@ def save_sms():
     if not device_id or not message:
         return jsonify({"error": "Missing deviceId or message"}), 400
 
-    # ✅ ใช้ document ที่ fix ตาม deviceId
+    # ✅ อ้างอิง document หลักตาม deviceId
     doc_ref = db.collection("bank_sms").document(device_id)
+
+    # ✅ อัปเดตข้อมูลล่าสุดใน document หลัก
     doc_ref.set({
         "deviceId": device_id,
+        "last_message": message,
+        "last_update": firestore.SERVER_TIMESTAMP
+    }, merge=True)
+
+    # ✅ เพิ่ม record ใหม่ทุกครั้งใน subcollection "history"
+    history_ref = doc_ref.collection("history")
+    history_ref.add({
         "message": message,
         "timestamp": firestore.SERVER_TIMESTAMP
     })
 
     return jsonify({"status": "ok", "deviceId": device_id}), 200
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
