@@ -501,36 +501,23 @@ def sms_to_firestore():
     except Exception as e:
         logging.error(e)
         return jsonify({"status": "error", "message": str(e)}), 500
-#---------------------------  write gmail to firestore ------------
-@app.route('/gmail-hook', methods=['POST'])
-def gmail_hook():
-    try:
-        data = request.get_json()
-        message_id = data.get("messageId")
+#---------------------------  sms to firestore ------------
+@app.route('/save_sms', methods=['POST'])
+def save_sms():
+    data = request.get_json()
+    message = data.get("message", "")
 
-        # ตรวจว่ามี messageId นี้ใน Firestore แล้วหรือยัง
-        existing = db.collection("gmail_inbox").where("messageId", "==", message_id).get()
-        if existing:
-            print("⏩ Duplicate email, skipping...")
-            return jsonify({"message": "Duplicate email ignored"}), 200
+    if not message:
+        return jsonify({"error": "No message provided"}), 400
 
-        # บันทึกข้อมูลใหม่
-        email_data = {
-            "messageId": message_id,
-            "from": data.get("from"),
-            "subject": data.get("subject"),
-            "body": data.get("body"),
-            "date": str(data.get("date")),
-            "created_at": datetime.utcnow()
-        }
-        db.collection("gmail_inbox").add(email_data)
+    db.collection("bank_sms").add({
+        "message": message,
+        "timestamp": firestore.SERVER_TIMESTAMP
+    })
+    return jsonify({"status": "ok"}), 200
 
-        print(f"✅ Saved new email: {data.get('subject')}")
-        return jsonify({"message": "Email saved"}), 200
-
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        return jsonify({"error": str(e)}), 500
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
 
 # ------------------- Run -------------------
 if __name__ == "__main__":
