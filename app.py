@@ -505,16 +505,21 @@ def sms_to_firestore():
 @app.route('/save_sms', methods=['POST'])
 def save_sms():
     data = request.get_json()
+    device_id = data.get("deviceId")
     message = data.get("message", "")
 
-    if not message:
-        return jsonify({"error": "No message provided"}), 400
+    if not device_id or not message:
+        return jsonify({"error": "Missing deviceId or message"}), 400
 
-    db.collection("bank_sms").add({
-        "message": message
-       
+    # ✅ ใช้ document ที่ fix ตาม deviceId
+    doc_ref = db.collection("bank_sms").document(device_id)
+    doc_ref.set({
+        "deviceId": device_id,
+        "message": message,
+        "timestamp": firestore.SERVER_TIMESTAMP
     })
-    return jsonify({"status": "ok"}), 200
+
+    return jsonify({"status": "ok", "deviceId": device_id}), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
