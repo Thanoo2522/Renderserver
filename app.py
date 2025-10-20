@@ -489,61 +489,63 @@ def save_sms():
         if not device_id or not message:
             return jsonify({"error": "deviceId or message missing"}), 400
 
-        # 🔹 ใช้ Regex แยกข้อความ SMS
-        from_match = re.search(r"From:\s*(\w+)", message)
-        date_time_match = re.search(r"(\d{2}/\d{2}/\d{2})\s+(\d{2}:\d{2}:\d{2})", message)
-        amount_match = re.search(r"จำนวน\s+([\d,]+(?:\.\d{2})?)", message)
-
-        from_bank = from_match.group(1) if from_match else ""
-        date = date_time_match.group(1) if date_time_match else ""
-        time = date_time_match.group(2) if date_time_match else ""
-        amount = float(amount_match.group(1).replace(",", "")) if amount_match else 0.0
-
-        # 🔹 ชื่อ field ใหม่ใน Firestore
+        # 🔹 สร้างชื่อ field ใหม่ เช่น sms_20251020095030
         field_key = datetime.utcnow().strftime("sms_%Y%m%d%H%M%S")
 
-        # 🔹 บันทึกลง Firestore
+        # 🔹 บันทึกข้อมูลลง Firestore
         doc_ref = db.collection("bank_sms").document(device_id)
         doc_ref.set({
-            field_key: {
-                "from": from_bank,
-                "date": date,
-                "time": time,
-                "amount": amount,
+            field_key: {                
                 "raw_message": message
             },
-            "last_update": datetime.utcnow(),
             "last_message": message
         }, merge=True)
 
+        logging.info(f"✅ Saved SMS to {device_id} : {field_key}")
+
         return jsonify({
             "status": "success",
-            "field": field_key,
-            "parsed": {
-                "from": from_bank,
-                "date": date,
-                "time": time,
-                "amount": amount
-            }
-        })
+            "field_key": field_key,
+            "saved_message": message
+        }), 200
 
     except Exception as e:
-        logging.error(e)
+        logging.error(f"🔥 Error saving SMS: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # --------------------------- GET SMS FIELDS ---------------------------
 @app.route("/get_sms_fields/<device_id>", methods=["GET"])
 def get_sms_fields(device_id):
-    doc_ref = db.collection("bank_sms").document(device_id)
-    doc = doc_ref.get()
-    if doc.exists:
-        return jsonify(doc.to_dict())
-    return jsonify({"error": "device not found"}), 404
+    try:
+        doc_ref = db.collection("bank_sms").document(device_id)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return jsonify({"error": "device not found"}), 404
+
+        data = doc.to_dict()
+
+        # 🔹 ดึงเฉพาะ field ที่ชื่อขึ้นต้นด้วย sms_
+        sms_fields = {k: v for k, v in data.items() if k.startswith("sms_")}
+
+        # 🔹 เรียงตามเวลา (key ล่าสุดมาก่อน)
+        sorted_sms = dict(sorted(sms_fields.items(), reverse=True))
+
+        return jsonify({
+            "device_id": device_id,
+            "count": len(sorted_sms),
+            "fields": sorted_sms
+        }), 200
+
+    except Exception as e:
+        logging.error(f"🔥 Error getting SMS fields: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
+# --------------------------- MAIN ---------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
