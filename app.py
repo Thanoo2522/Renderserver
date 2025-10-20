@@ -12,6 +12,7 @@ import firebase_admin
 import logging
 from datetime import datetime
 from firebase_admin import credentials, storage, firestore
+import re   # ✅ เพิ่มบรรทัดนี้!
  
 
 app = Flask(__name__)
@@ -477,45 +478,61 @@ def get_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 #------------ รับ sms-------------------------------
-@app.route("/sms_to_firestore", methods=["POST"])
-def sms_to_firestore():
+# --------------------------- SAVE SMS ---------------------------
+@app.route("/save_sms", methods=["POST"])
+def save_sms():
     try:
-        data = request.get_json(force=True)
-        sender = data.get("sender")
+        data = request.json
+        device_id = data.get("deviceId")
         message = data.get("message")
 
-        if not sender or not message:
-            logging.warning("Missing sender or message")
-            return jsonify({"status": "error", "message": "Missing data"}), 400
+        if not device_id or not message:
+            return jsonify({"error": "deviceId or message missing"}), 400
 
-        db.collection("sms_messages").add({
-            "sender": sender,
-            "message": message,
-            "timestamp": firestore.SERVER_TIMESTAMP,
-            "received_at": datetime.now().isoformat()  # ✅ แก้ตรงนี้
+        # 🔹 ใช้ Regex แยกข้อความ SMS
+        from_match = re.search(r"From:\s*(\w+)", message)
+        date_time_match = re.search(r"(\d{2}/\d{2}/\d{2})\s+(\d{2}:\d{2}:\d{2})", message)
+        amount_match = re.search(r"จำนวน\s+([\d,]+(?:\.\d{2})?)", message)
+
+        from_bank = from_match.group(1) if from_match else ""
+        date = date_time_match.group(1) if date_time_match else ""
+        time = date_time_match.group(2) if date_time_match else ""
+        amount = float(amount_match.group(1).replace(",", "")) if amount_match else 0.0
+
+        # 🔹 ชื่อ field ใหม่ใน Firestore
+        field_key = datetime.utcnow().strftime("sms_%Y%m%d%H%M%S")
+
+        # 🔹 บันทึกลง Firestore
+        doc_ref = db.collection("bank_sms").document(device_id)
+        doc_ref.set({
+            field_key: {
+                "from": from_bank,
+                "date": date,
+                "time": time,
+                "amount": amount,
+                "raw_message": message
+            },
+            "last_update": datetime.utcnow(),
+            "last_message": message
+        }, merge=True)
+
+        return jsonify({
+            "status": "success",
+            "field": field_key,
+            "parsed": {
+                "from": from_bank,
+                "date": date,
+                "time": time,
+                "amount": amount
+            }
         })
-
-        logging.info(f"SMS stored from {sender}: {message}")
-        return jsonify({"status": "success", "message": "SMS stored in Firestore"}), 200
 
     except Exception as e:
         logging.error(e)
         return jsonify({"status": "error", "message": str(e)}), 500
-#---------------------------  sms to firestore ------------
-@app.route("/save_sms", methods=["POST"])
-def save_sms():
-    data = request.json
-    device_id = data.get("deviceId")
-    message = data.get("message")
-    if not device_id or not message:
-        return jsonify({"error": "deviceId or message missing"}), 400
 
-    doc_ref = db.collection("bank_sms").document(device_id)
-    field_key = datetime.utcnow().strftime("sms_%Y%m%d%H%M%S")
-    doc_ref.set({field_key: message, "last_update": datetime.utcnow(), "last_message": message}, merge=True)
 
-    return jsonify({"status": "success", "field": field_key})
-
+# --------------------------- GET SMS FIELDS ---------------------------
 @app.route("/get_sms_fields/<device_id>", methods=["GET"])
 def get_sms_fields(device_id):
     doc_ref = db.collection("bank_sms").document(device_id)
@@ -523,6 +540,7 @@ def get_sms_fields(device_id):
     if doc.exists:
         return jsonify(doc.to_dict())
     return jsonify({"error": "device not found"}), 404
+
 
 if __name__ == "__main__":
     app.run(debug=True)
