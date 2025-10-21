@@ -477,7 +477,40 @@ def get_user():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-#------------ รับ sms-------------------------------
+#------------
+@app.route("/sms_to_firestore", methods=["POST"])
+def sms_to_firestore():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "No JSON received"}), 400
+
+        sender = data.get("sender")
+        message = data.get("message")
+
+        if not sender or not message:
+            return jsonify({"status": "error", "message": "Missing fields"}), 400
+
+        logging.info(f"Received SMS from {sender}: {message}")
+
+        # บันทึกลง Firestore
+        # สมมติ collection ชื่อ "bank_sms"
+        doc_ref = db.collection("bank_sms").document(sender)
+        doc_ref.set({
+            "last_message": message,
+            "timestamp": firestore.SERVER_TIMESTAMP
+        }, merge=True)
+
+        return jsonify({"status": "success"}), 200
+
+    except Exception as e:
+        logging.exception("Error in /sms_to_firestore")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+if __name__ == "__main__":
+    # สำหรับ test local
+    app.run(host="0.0.0.0", port=5000, debug=True)
 # --------------------------- SAVE SMS ---------------------------
 @app.route("/save_sms", methods=["POST"])
 def save_sms():
