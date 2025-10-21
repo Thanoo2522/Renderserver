@@ -526,20 +526,16 @@ def get_sms_fields(device_id):
 
         data = doc.to_dict()
 
-        # 🔹 ดึงเฉพาะ field ที่ชื่อขึ้นต้นด้วย sms_
-        sms_fields = {k: v for k, v in data.items() if k.startswith("sms_")}
-
-        # 🔹 เรียงตามเวลา (key ล่าสุดมาก่อน)
-        sorted_sms = dict(sorted(sms_fields.items(), reverse=True))
+        # 🔹 ดึงเฉพาะ field last_message
+        last_message = data.get("last_message", "")
 
         return jsonify({
             "device_id": device_id,
-            "count": len(sorted_sms),
-            "fields": sorted_sms
+            "last_message": last_message
         }), 200
 
     except Exception as e:
-        logging.error(f"🔥 Error getting SMS fields: {e}")
+        logging.error(f"🔥 Error getting last_message: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
