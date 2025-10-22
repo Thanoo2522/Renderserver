@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 from firebase_admin import credentials, storage, firestore
 import re   # ✅ เพิ่มบรรทัดนี้!
-from google.cloud import firestore
+ 
  
 
 app = Flask(__name__)
@@ -35,7 +35,7 @@ service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
-db = firestore.Client()
+db = firestore.client()
 bucket = storage.bucket()
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
