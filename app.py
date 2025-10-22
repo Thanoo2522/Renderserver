@@ -35,7 +35,7 @@ service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
-db = firestore.client()
+db = firestore.Client()
 bucket = storage.bucket()
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
