@@ -347,7 +347,7 @@ def save_image():
 
 # ------------------- บันทึกแจ้งการโอนเงิน -------------------
 @app.route("/save_payment", methods=["POST"])
-def save_data():
+def save_payment():
     try:
         data = request.get_json()
 
