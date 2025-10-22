@@ -13,6 +13,7 @@ import logging
 from datetime import datetime
 from firebase_admin import credentials, storage, firestore
 import re   # ✅ เพิ่มบรรทัดนี้!
+from google.cloud import firestore
  
 
 app = Flask(__name__)
@@ -344,7 +345,45 @@ def save_image():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-# ------------------- Search Ticket -------------------
+# ------------------- บันทึกแจ้งการโอนเงิน -------------------
+@app.route("/save_payment", methods=["POST"])
+def save_data():
+    try:
+        data = request.get_json()
+
+        # ตรวจสอบข้อมูลที่ส่งมา
+        namebookbank = data.get("namebookbank")
+        date = data.get("date")
+        time = data.get("time")
+        status = data.get("status")
+
+        # 🔒 ปลอดภัยสำหรับ document ID
+        safe_date = date.replace("/", "-")      # -> "10-10-68"
+        safe_time = time.replace(":", "-")      # -> "12-02-15"
+        doc_id = f"{safe_date},{safe_time}"     # -> "10-10-68,12-02-15"
+
+        # ตรวจสอบว่ามีทุก field หรือไม่
+        if not all([namebookbank, date, time, status]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # 📝 สร้าง document ใหม่ใน Firestore
+        doc_ref = db.collection("users").document(doc_id)
+        doc_ref.set({
+            "namebookbank": namebookbank,
+            "date": date,
+            "time": time,
+            "status": status
+        })
+
+        return jsonify({"message": "Data saved successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
  # ------------------- Search Ticket -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
@@ -477,7 +516,7 @@ def get_user():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-#------------
+#------------ขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขข
 @app.route("/sms_to_firestore", methods=["POST"])
 def sms_to_firestore():
     try:
