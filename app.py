@@ -164,32 +164,6 @@ def get_count():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)   
-# ---------------- บันทึกการนับภาพ นับการคลิกโทร ----------------
-@app.route("/save_count", methods=["POST"])
-def save_count():
-    try:
-        data = request.json
-        user_id = data.get("user_id")
-        numimage = data.get("numimage", 0)
-        numcall = data.get("numcall", 0)
-
-        if not user_id:
-            return jsonify({"error": "ต้องระบุ user_id"}), 400
-
-        doc_ref = db.collection("count_process").document(user_id)
-        doc_ref.set({
-            "numimage": numimage,
-            "numcall": numcall
-        }, merge=True)  # merge=True จะอัปเดตเฉพาะฟิลด์ที่ส่งมา
-
-        return jsonify({"message": "บันทึกข้อมูลสำเร็จ", "user_id": user_id}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)        
 
 #-----------------------update_status ของแแผงลอตเตอร์รี่  ----------------------------------
 @app.route("/update_status", methods=["POST"])
@@ -258,16 +232,20 @@ def get_user_data():
 if __name__ == "__main__":
     app.run(debug=True)
  
-# ------------------- Save User Profile -------------------
+# ------------------- Save User Profile -------------------get_count
 @app.route("/save_user", methods=["POST"])
 def save_user():
     try:
         data = request.json
+        user_id = data.get("user_id")
         shop_name = data.get("shop_name")
         user_name = data.get("user_name")
         phone = data.get("phone")
-        user_id = data.get("user_id")
-        quota = data.get("Quota") 
+
+        numiage = data.get("numiage")
+        numcall = data.get("numcall")       
+        
+        Quota = data.get("Quota") 
         startdate = data.get("startdate")  
 
         if not shop_name or not user_name or not phone:
@@ -281,7 +259,7 @@ def save_user():
             "shop_name": shop_name,
             "user_name": user_name,
             "phone": phone,
-             "quota": quota,
+             "Quota": Quota,
               "startdate": startdate
             
 
@@ -565,7 +543,14 @@ def get_user():
         result = {
             "phone": user_data.get("phone"),
             "shop_name": user_data.get("shop_name"),
-            "user_name": user_data.get("user_name")
+            "user_name": user_data.get("user_name"),
+
+            "numimage": user_data.get("numimage"),
+            "numcall": user_data.get("numcall"),
+
+             "quota": user_data.get("quota"), 
+             "startdate": user_data.get("startdate") 
+
         }
 
         return jsonify(result), 200
