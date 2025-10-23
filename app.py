@@ -260,7 +260,31 @@ def save_user():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+# ------------------- Save promission-------------------
+@app.route("/promis", methods=["POST"])
+def promis():
+    try:
+        data = request.json
+        promission = data.get("promission")
+        phone = data.get("phone")
+        
 
+        if not promission or not phone:
+            return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
+
+        if not promission:
+            promission = str(uuid.uuid4())
+
+        doc_ref = db.collection("controlpromission").document(phone)
+        doc_ref.set({
+            "promission": promission
+        })
+
+        #return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
+        return jsonify({"message": "บันทึก profile สำเร็จ"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 # ------------------ ฟังก์ชันคำนวณหลักเลข ------------------------
 def get_tens_digit(number: int) -> int:
     return (int(number) // 10) % 10
@@ -287,7 +311,7 @@ def update_search_index(index_type, num, user_id, ticket_id):
     except Exception as e:
         print(f"❌ Firestore error: {e}")
 
-
+#-------------------------------------------------------------------------------------
 @app.route("/save_image", methods=["POST"])
 def save_image():
     try:
