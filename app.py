@@ -260,7 +260,10 @@ def save_user():
             "user_name": user_name,
             "phone": phone,
              "Quota": Quota,
-              "startdate": startdate
+              "startdate": startdate,
+              "numiage": numiage,
+              "numcall":numcall
+
             
 
         })
