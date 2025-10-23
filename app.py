@@ -10,11 +10,7 @@ import json
 import time
 import requests
 import firebase_admin
-import logging
-from datetime import datetime
 from firebase_admin import credentials, storage, firestore
-import re   # ✅ เพิ่มบรรทัดนี้!
- 
  
 
 app = Flask(__name__)
@@ -80,19 +76,7 @@ def ask_openai(filepath, question):
 
     return raw_answer
 
-#--------------------- เช็คการเชื่อมต่อ firebas ----------
-@app.route("/check_firebase", methods=["GET"])
-def check_firebase():
-    try:
-        bucket = storage.bucket()
-        # ทดสอบ list ไฟล์ (เช็คว่าเชื่อมต่อได้จริง)
-        blobs = list(bucket.list_blobs(max_results=1))
-        return jsonify({"status": "connected", "bucket": BUCKET_NAME})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
@@ -165,89 +149,42 @@ def get_count():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)   
-
-#-----------------------update_status ของแแผงลอตเตอร์รี่  ----------------------------------
-@app.route("/update_status", methods=["POST"])
-def update_status():
+# ---------------- บันทึกการนับภาพ นับการคลิกโทร ----------------
+@app.route("/save_count", methods=["POST"])
+def save_count():
     try:
-        data = request.get_json()
-        user_id = data["userId"]
-        status = data["status"]  # "active" หรือ "nonactive"
+        data = request.json
+        user_id = data.get("user_id")
+        numimage = data.get("numimage", 0)
+        numcall = data.get("numcall", 0)
 
-        doc_ref = db.collection("users").document(user_id)
-        doc_ref.update({"status": status})
+        if not user_id:
+            return jsonify({"error": "ต้องระบุ user_id"}), 400
 
-        return jsonify({"status": "success", "message": f"User {user_id} updated to {status}"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
-    
- #------------------- อ่านเฉพาะ field” -------------------------------------------------   
-@app.route("/get_field", methods=["POST"])
-def get_field():
-    try:
-        data = request.get_json()
-        user_id = data["userId"]
-        field_name = data["fieldName"]  # เช่น "status"
+        doc_ref = db.collection("count_process").document(user_id)
+        doc_ref.set({
+            "numimage": numimage,
+            "numcall": numcall
+        }, merge=True)  # merge=True จะอัปเดตเฉพาะฟิลด์ที่ส่งมา
 
-        doc_ref = db.collection("users").document(user_id)
-        doc = doc_ref.get()
-
-        if not doc.exists:
-            return jsonify({"status": "error", "message": "Document not found"}), 404
-
-        doc_data = doc.to_dict()
-        if field_name not in doc_data:
-            return jsonify({"status": "error", "message": f"Field '{field_name}' not found"}), 404
-
-        return jsonify({
-            "status": "success",
-            "field": field_name,
-            "value": doc_data[field_name]
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 400
-    #----------------------------- อ่านค่า Quota , date--------------
-@app.route("/get_user_data", methods=["POST"])
-def get_user_data():
-    try:
-        data = request.get_json()
-        user_id = data.get("user_id")  # เช่น "1234"
-
-        # อ่าน document จาก Firestore
-        doc_ref = db.collection("users").document(user_id)
-        doc = doc_ref.get()
-
-        if doc.exists:
-            user_data = doc.to_dict()
-            return jsonify({
-               "data": user_data.get("data"),  # อ่านวันที่
-                "Quota": user_data.get("Quota")
-    
-            })
-        else:
-            return jsonify({"status": "error", "message": "User not found"}), 404
+        return jsonify({"message": "บันทึกข้อมูลสำเร็จ", "user_id": user_id}), 200
 
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
- 
-# ------------------- Save User Profile -------------------get_count
+    app.run(host="0.0.0.0", port=5000)        
+
+# ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
     try:
         data = request.json
-        user_id = data.get("user_id")
         shop_name = data.get("shop_name")
         user_name = data.get("user_name")
         phone = data.get("phone")
-
-        numiage = data.get("numiage")
-        numcall = data.get("numcall")       
-        
-        Quota = data.get("Quota") 
-        startdate = data.get("startdate")  
+        user_id = data.get("user_id")
 
         if not shop_name or not user_name or not phone:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
@@ -259,14 +196,7 @@ def save_user():
         doc_ref.set({
             "shop_name": shop_name,
             "user_name": user_name,
-            "phone": phone,
-             "Quota": Quota,
-              "startdate": startdate,
-              "numiage": numiage,
-              "numcall":numcall
-
-            
-
+            "phone": phone
         })
 
         #return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
@@ -274,31 +204,7 @@ def save_user():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-# ------------------- Save promission-------------------
-@app.route("/promis", methods=["POST"])
-def promis():
-    try:
-        data = request.json
-        promission = data.get("promission")
-        phone = data.get("phone")
-        
 
-        if not promission or not phone:
-            return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
-
-        if not promission:
-            promission = str(uuid.uuid4())
-
-        doc_ref = db.collection("controlpromission").document(phone)
-        doc_ref.set({
-            "promission": promission
-        })
-
-        #return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
-        return jsonify({"message": "บันทึก profile สำเร็จ"}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 # ------------------ ฟังก์ชันคำนวณหลักเลข ------------------------
 def get_tens_digit(number: int) -> int:
     return (int(number) // 10) % 10
@@ -325,103 +231,62 @@ def update_search_index(index_type, num, user_id, ticket_id):
     except Exception as e:
         print(f"❌ Firestore error: {e}")
 
-#-------------------------------------------------------------------------------------
+
 @app.route("/save_image", methods=["POST"])
 def save_image():
     try:
-        data = request.get_json()
+        data = request.json
         user_id = data.get("user_id")
         image_base64 = data.get("image_base64")
         number6 = data.get("number6")
         quantity = data.get("quantity")
-        datetime_str = data.get("datetime")
 
-        # ✅ ตรวจสอบข้อมูลครบ
-        if not all([user_id, image_base64, number6, quantity]):
+        if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        # ✅ แปลง base64 → ไฟล์ภาพ
         image_bytes = base64.b64decode(image_base64)
-        filename = f"{uuid.uuid4()}.jpg"
+        filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
 
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # ✅ อัปโหลดขึ้น Firebase Storage
         blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
-        image_url = blob.public_url
 
-        # ✅ สร้าง document ใหม่ใน Firestore
+        image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
+
         doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
             "quantity": quantity,
-            "datetime": datetime_str,
             "created_at": datetime.utcnow()
         })
 
-        # ✅ อัปเดต search index (เลขหลักสิบ, ร้อย, แสน)
-        try:
-            number6_int = int(number6)
-            update_search_index(f"{get_tens_digit(number6_int)}_ten", number6, user_id, ticket_id)
-            update_search_index(f"{get_hundreds_digit(number6_int)}_hundreds", number6, user_id, ticket_id)
-            update_search_index(f"{get_hundred_thousands_digit(number6_int)}_hundred_thousands", number6, user_id, ticket_id)
-        except ValueError:
-            print("⚠️ number6 ไม่ใช่ตัวเลขล้วน (skip update index)")
+        number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
+
+        # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
+        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+
+        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+
+        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
         return jsonify({
-            "message": "บันทึกสำเร็จ",
-            "image_url": image_url
+            "message": "บันทึกสำเร็จ"
         }), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-# ------------------- บันทึกแจ้งการโอนเงิน -------------------
-@app.route("/save_payment", methods=["POST"])
-def save_payment():
-    try:
-        data = request.get_json()
-
-        # ตรวจสอบข้อมูลที่ส่งมา
-        namebookbank = data.get("namebookbank")
-        date = data.get("date")
-        time = data.get("time")
-        status = data.get("status")
-
-        # 🔒 ปลอดภัยสำหรับ document ID
-        safe_date = date.replace("/", "-")      # -> "10-10-68"
-        safe_time = time.replace(":", "-")      # -> "12-02-15"
-        doc_id = f"{safe_date},{safe_time}"     # -> "10-10-68,12-02-15"
-
-        # ตรวจสอบว่ามีทุก field หรือไม่
-        if not all([namebookbank, date, time, status]):
-            return jsonify({"error": "Missing required fields"}), 400
-
-        # 📝 สร้าง document ใหม่ใน Firestore
-        doc_ref = db.collection("users").document(doc_id)
-        doc_ref.set({
-            "namebookbank": namebookbank,
-            "date": date,
-            "time": time,
-            "status": status
-        })
-
-        return jsonify({"message": "Data saved successfully"}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
-
+# ------------------- Search Ticket -------------------
  # ------------------- Search Ticket -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
@@ -547,118 +412,15 @@ def get_user():
         result = {
             "phone": user_data.get("phone"),
             "shop_name": user_data.get("shop_name"),
-            "user_name": user_data.get("user_name"),
-
-            "numimage": user_data.get("numimage"),
-            "numcall": user_data.get("numcall"),
-
-             "Quota": user_data.get("Quota"), 
-             "startdate": user_data.get("startdate")   
-       
+            "user_name": user_data.get("user_name")
         }
 
         return jsonify(result), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-#------------ขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขขข
-@app.route("/sms_to_firestore", methods=["POST"])
-def sms_to_firestore():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"status": "error", "message": "No JSON received"}), 400
+#-------------------------------------------
 
-        sender = data.get("sender")
-        message = data.get("message")
-
-        if not sender or not message:
-            return jsonify({"status": "error", "message": "Missing fields"}), 400
-
-        logging.info(f"Received SMS from {sender}: {message}")
-
-        # บันทึกลง Firestore
-        # สมมติ collection ชื่อ "bank_sms"
-        doc_ref = db.collection("bank_sms").document(sender)
-        doc_ref.set({
-            "last_message": message,
-            "timestamp": firestore.SERVER_TIMESTAMP
-        }, merge=True)
-
-        return jsonify({"status": "success"}), 200
-
-    except Exception as e:
-        logging.exception("Error in /sms_to_firestore")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-if __name__ == "__main__":
-    # สำหรับ test local
-    app.run(host="0.0.0.0", port=5000, debug=True)
-# --------------------------- SAVE SMS ---------------------------
-@app.route("/save_sms", methods=["POST"])
-def save_sms():
-    try:
-        data = request.json
-        device_id = data.get("deviceId")
-        message = data.get("message")
-
-        if not device_id or not message:
-            return jsonify({"error": "deviceId or message missing"}), 400
-
-        # 🔹 สร้างชื่อ field ใหม่ เช่น sms_20251020095030
-        field_key = datetime.utcnow().strftime("sms_%Y%m%d%H%M%S")
-
-        # 🔹 บันทึกข้อมูลลง Firestore
-        doc_ref = db.collection("bank_sms").document(device_id)
-        doc_ref.set({
-            field_key: {                
-                "raw_message": message
-            },
-            "last_message": message
-        }, merge=True)
-
-        logging.info(f"✅ Saved SMS to {device_id} : {field_key}")
-
-        return jsonify({
-            "status": "success",
-            "field_key": field_key,
-            "saved_message": message
-        }), 200
-
-    except Exception as e:
-        logging.error(f"🔥 Error saving SMS: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-# --------------------------- GET SMS FIELDS ---------------------------
-@app.route("/get_sms_fields/<device_id>", methods=["GET"])
-def get_sms_fields(device_id):
-    try:
-        doc_ref = db.collection("bank_sms").document(device_id)
-        doc = doc_ref.get()
-
-        if not doc.exists:
-            return jsonify({"error": "device not found"}), 404
-
-        data = doc.to_dict()
-
-        # 🔹 ดึงเฉพาะ field last_message
-        last_message = data.get("last_message", "")
-
-        return jsonify({
-            "device_id": device_id,
-            "last_message": last_message
-        }), 200
-
-    except Exception as e:
-        logging.error(f"🔥 Error getting last_message: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-# --------------------------- MAIN ---------------------------
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
 # ------------------- Run -------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
