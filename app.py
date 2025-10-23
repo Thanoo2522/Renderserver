@@ -231,6 +231,32 @@ def get_field():
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 400
+    #----------------------------- อ่านค่า Quota , date--------------
+@app.route("/get_user_data", methods=["POST"])
+def get_user_data():
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")  # เช่น "1234"
+
+        # อ่าน document จาก Firestore
+        doc_ref = db.collection("users").document(user_id)
+        doc = doc_ref.get()
+
+        if doc.exists:
+            user_data = doc.to_dict()
+            return jsonify({
+               "data": user_data.get("data"),  # อ่านวันที่
+                "Quota": user_data.get("Quota")
+    
+            })
+        else:
+            return jsonify({"status": "error", "message": "User not found"}), 404
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+if __name__ == "__main__":
+    app.run(debug=True)
  
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
@@ -241,6 +267,8 @@ def save_user():
         user_name = data.get("user_name")
         phone = data.get("phone")
         user_id = data.get("user_id")
+        quota = data.get("Quota") 
+        startdate = data.get("startdate")  
 
         if not shop_name or not user_name or not phone:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
@@ -252,7 +280,11 @@ def save_user():
         doc_ref.set({
             "shop_name": shop_name,
             "user_name": user_name,
-            "phone": phone
+            "phone": phone,
+             "quota": quota,
+              "startdate": startdate
+            
+
         })
 
         #return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
