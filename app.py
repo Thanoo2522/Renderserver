@@ -157,13 +157,12 @@ if __name__ == "__main__":
 def save_count():
     try:
         data = request.json
-        user_id = data.get("user_id")  # ตรงนี้ให้เป็น เบอร์โทรของเจ้าของแผง
+        user_id = data.get("user_id")
         numimage = data.get("numimage")
         numcall = data.get("numcall")
-
         status = data.get("status")
-        Quota = data.get("Quota")
-        startdatetime =  data.get("startdatetime")
+        quota = data.get("quota") or data.get("Quota")  # ✅ รองรับทั้ง 2 แบบ
+        startdatetime = data.get("startdatetime")
 
         if not user_id:
             return jsonify({"error": "ต้องระบุ user_id"}), 400
@@ -173,19 +172,20 @@ def save_count():
             "numimage": numimage,
             "numcall": numcall,
             "status": status,
-            "Quota": Quota,
+            "Quota": quota,
             "startdatetime": startdatetime
+        }, merge=True)
 
-        }, merge=True)  # merge=True จะอัปเดตเฉพาะฟิลด์ที่ส่งมา
-
-        return jsonify({"message": "บันทึกข้อมูลสำเร็จ", "user_id": user_id}), 200
+        return jsonify({
+            "message": "บันทึกข้อมูลสำเร็จ",
+            "user_id": user_id,
+            "Quota": quota,
+            "startdatetime": startdatetime
+        }), 200
 
     except Exception as e:
+        print("❌ SERVER ERROR:", e)
         return jsonify({"error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)        
 
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
