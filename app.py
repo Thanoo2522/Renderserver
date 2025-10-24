@@ -158,12 +158,12 @@ def save_count():
     try:
         data = request.json
         user_id = data.get("user_id")  # ตรงนี้ให้เป็น เบอร์โทรของเจ้าของแผง
-        numimage = data.get("numimage", 0)
-        numcall = data.get("numcall", 0)
+        numimage = data.get("numimage")
+        numcall = data.get("numcall")
 
-        status = data.get("status", 0)
-        Quota = data.get("Quota", 0)
-        startdatetime =  data.get("startdatetime", 0)
+        status = data.get("status")
+        Quota = data.get("Quota")
+        startdatetime =  data.get("startdatetime")
 
         if not user_id:
             return jsonify({"error": "ต้องระบุ user_id"}), 400
