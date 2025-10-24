@@ -122,7 +122,7 @@ def list_images():
 def get_count():
     try:
         data = request.json
-        user_id = data.get("user_id")
+        user_id = data.get("user_id") # user_id = เบอโทรเจ้าของแผง
 
         if not user_id:
             return jsonify({"error": "ต้องระบุ user_id"}), 400
@@ -138,7 +138,10 @@ def get_count():
         # ✅ กำหนดรูปแบบข้อมูลที่จะส่งกลับ
         result = {
             "numimage": user_data.get("numimage", 0),
-            "numcall": user_data.get("numcall", 0)
+            "numcall": user_data.get("numcall", 0),
+            "status": user_data.get("status", 0),
+            "Quota": user_data.get("Quota", 0),
+            "startdatetime": user_data.get("startdatetime", 0)
         }
 
         return jsonify(result), 200
@@ -154,9 +157,13 @@ if __name__ == "__main__":
 def save_count():
     try:
         data = request.json
-        user_id = data.get("user_id")
+        user_id = data.get("user_id")  # ตรงนี้ให้เป็น เบอร์โทรของเจ้าของแผง
         numimage = data.get("numimage", 0)
         numcall = data.get("numcall", 0)
+
+        status = data.get("status", 0)
+        Quota = data.get("Quota", 0)
+        startdatetime =  data.get("startdatetime", 0)
 
         if not user_id:
             return jsonify({"error": "ต้องระบุ user_id"}), 400
@@ -164,7 +171,11 @@ def save_count():
         doc_ref = db.collection("count_process").document(user_id)
         doc_ref.set({
             "numimage": numimage,
-            "numcall": numcall
+            "numcall": numcall,
+            "status": status,
+            "Quota": Quota,
+            "startdatetime": startdatetime
+
         }, merge=True)  # merge=True จะอัปเดตเฉพาะฟิลด์ที่ส่งมา
 
         return jsonify({"message": "บันทึกข้อมูลสำเร็จ", "user_id": user_id}), 200
