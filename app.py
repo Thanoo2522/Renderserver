@@ -444,9 +444,9 @@ def save_payment():
         money = data.get("money")
 
         # 🔒 ปลอดภัยสำหรับ document ID
-        # safe_date = date.replace("/", "-")      # -> "10-10-68"
-        # safe_time = time.replace(":", "-")      # -> "12-02-15"
-        doc_id = f"{date},{time}"     # -> "10-10-68,12-02-15"
+        safe_date = date.replace("/", "-")      # -> "10-10-68"
+        safe_time = time.replace(":", "-")      # -> "12-02-15"
+        doc_id = f"{safe_date},{safe_time}"     # -> "10-10-68,12-02-15"
 
         # ตรวจสอบว่ามีทุก field หรือไม่
         if not all([namebookbank,namphone, date, time, money]):
