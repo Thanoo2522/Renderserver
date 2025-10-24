@@ -303,6 +303,7 @@ def save_image():
         return jsonify({"error": str(e)}), 500
 
  # ------------------- Search Ticket -------------------
+# ------------------- Search Number -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
     try:
@@ -312,14 +313,24 @@ def search_number():
         if not number:
             return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
 
+        if not number.isdigit():
+            return jsonify({"error": "เลขต้องเป็นตัวเลขเท่านั้น"}), 400
+
         search_len = len(number)
-        if search_len not in [2, 3, 6]:
+        index_types = []
+
+        if search_len == 2:
+            index_types = ["2_top", "2_bottom"]
+        elif search_len == 3:
+            index_types = ["3_top", "3_bottom"]
+        elif search_len == 6:
+            index_types = ["6_exact"]
+        else:
             return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
 
         results = []
-        found_tickets = set()
+        found_tickets = set()  # เก็บ ticket_id ที่เจอแล้ว
 
-        # ตรวจตามหลักต่าง ๆ
         for digit_type, func in [
             ("ten", get_tens_digit),
             ("hundreds", get_hundreds_digit),
@@ -329,7 +340,7 @@ def search_number():
             index_name = f"{digit_value}_{digit_type}"
 
             idx_col_ref = db.collection("search_index").document(index_name)
-            subcollections = list(idx_col_ref.collections())
+            subcollections = list(idx_col_ref.collections())  # ดึงทุก subcollection
 
             for subcol in subcollections:
                 docs = list(subcol.stream())
@@ -340,14 +351,26 @@ def search_number():
 
                     for ticket_id in tickets.keys():
                         if ticket_id in found_tickets:
-                            continue
+                            continue  # ข้ามถ้าเจอแล้ว
 
-                        # ✅ แก้ให้ตรงกับ path ที่ save_image ใช้
                         ticket_ref = db.collection("lotterypost").document(user_id)
                         ticket_doc = ticket_ref.get()
 
                         if not ticket_doc.exists:
                             continue
+
+                        # ดึงข้อมูลผู้ใช้
+                        user_ref = db.collection("users").document(user_id)
+                        user_doc = user_ref.get()
+                        phone = ""
+                        name = ""
+                        shop = ""
+
+                        if user_doc.exists:
+                            user_data = user_doc.to_dict()
+                            phone = user_data.get("phone", "")
+                            name = user_data.get("user_name", "")
+                            shop = user_data.get("shop_name", "")
 
                         ticket_data = ticket_doc.to_dict()
                         number6_str = str(ticket_data.get("number6", "")).zfill(6)
@@ -369,6 +392,9 @@ def search_number():
                                 "image_url": ticket_data.get("image_url"),
                                 "number6": number6_str,
                                 "quantity": ticket_data.get("quantity"),
+                                "phone": phone,
+                                "name": name,
+                                "shop": shop,
                                 "match_type": match_type
                             })
                             found_tickets.add(ticket_id)
@@ -379,6 +405,9 @@ def search_number():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
  # ---------------- อ่านข้แมูลจาก firestore แล้วส่งกลับ maui ----------------
 @app.route("/get_user", methods=["POST"])
 def get_user():
