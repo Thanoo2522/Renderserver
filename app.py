@@ -252,24 +252,28 @@ def save_image():
         number6 = data.get("number6")
         quantity = data.get("quantity")
 
+        # ตรวจสอบข้อมูลครบหรือไม่
         if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
+        # แปลงรูปจาก base64 เป็นไฟล์
         image_bytes = base64.b64decode(image_base64)
-        filename = f"{str(uuid.uuid4())}.jpg"
+        filename = f"{uuid.uuid4()}.jpg"
         filepath = os.path.join("/tmp", filename)
 
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        blob = bucket.blob(f"users/{user_id}/imagelottery/{filename}")
+        # อัปโหลดขึ้น Cloud Storage
+        blob = bucket.blob(f"lotterypost/{user_id}/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
 
         image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
 
-        doc_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
+        # บันทึกข้อมูลลง Firestore
+        doc_ref = db.collection("lotterypost").document(user_id)
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
@@ -277,27 +281,27 @@ def save_image():
             "created_at": datetime.utcnow()
         })
 
+        # ------------------- ตรวจหลักเลข -------------------
         number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
 
-        # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
-        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("ten", get_tens_digit)]:
+            digit_value = func(number6_int)
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("hundreds", get_hundreds_digit)]:
+            digit_value = func(number6_int)
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:
+            digit_value = func(number6_int)
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-        return jsonify({
-            "message": "บันทึกสำเร็จ"
-        }), 200
+        return jsonify({"message": "บันทึกสำเร็จ"}), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-# ------------------- Search Ticket -------------------
  # ------------------- Search Ticket -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
