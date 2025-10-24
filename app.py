@@ -430,9 +430,49 @@ def get_user():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-#-------------------------------------------
+#-------------------------------บันทึกการโอนเงิน ------------
+@app.route("/save_payment", methods=["POST"])
+def save_payment():
+    try:
+        data = request.get_json()
 
-# ------------------- Run -------------------
+        # ตรวจสอบข้อมูลที่ส่งมา
+        namebookbank = data.get("namebookbank")
+        namphone = data.get("namphone")
+        date = data.get("date")
+        time = data.get("time")
+        money = data.get("money")
+
+        # 🔒 ปลอดภัยสำหรับ document ID
+        safe_date = date.replace("/", "-")      # -> "10-10-68"
+        safe_time = time.replace(":", "-")      # -> "12-02-15"
+        doc_id = f"{safe_date},{safe_time}"     # -> "10-10-68,12-02-15"
+
+        # ตรวจสอบว่ามีทุก field หรือไม่
+        if not all([namebookbank,namphone, date, time, money]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # 📝 สร้าง document ใหม่ใน Firestore
+        doc_ref = db.collection("users").document(doc_id)
+        doc_ref.set({
+            "namebookbank": namebookbank,
+            "namphone": namphone,
+            "date": date,
+            "time": time,
+            "money": money
+        })
+
+        return jsonify({"message": "Data saved successfully"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
+
+# ------------------- Run -------------------save_image
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
