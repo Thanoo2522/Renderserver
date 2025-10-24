@@ -277,8 +277,8 @@ def save_image():
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
-            "quantity": quantity,
-            "created_at": datetime.utcnow()
+            "quantity": quantity
+            # "created_at": datetime.utcnow()
         })
 
         # ------------------- ตรวจหลักเลข -------------------
@@ -349,7 +349,8 @@ def search_number():
                         if ticket_id in found_tickets:
                             continue  # ข้ามถ้าเจอแล้ว
 
-                        ticket_ref = db.collection("users").document(user_id).collection("imagelottery").document(ticket_id)
+                       
+                        ticket_ref = db.collection("lotterypost").document(user_id)
                         ticket_doc = ticket_ref.get()
 
                         if not ticket_doc.exists:
