@@ -252,57 +252,50 @@ def save_image():
         number6 = data.get("number6")
         quantity = data.get("quantity")
 
-        # ตรวจสอบข้อมูลครบหรือไม่
         if not user_id or not image_base64 or not number6 or not quantity:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        # แปลงรูปจาก base64 เป็นไฟล์
         image_bytes = base64.b64decode(image_base64)
-        filename = f"{uuid.uuid4()}.jpg"
+        filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
 
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # อัปโหลดขึ้น Cloud Storage
-        blob = bucket.blob(f"lotterypost/{user_id}/{filename}")
+        blob = bucket.blob(f"lotterypost/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
 
         image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
 
-        # บันทึกข้อมูลลง Firestore
-        doc_ref = db.collection("lotterypost").document(user_id)
+        doc_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
-            "quantity": quantity
-            # "created_at": datetime.utcnow()
+            "quantity": quantity,
+            "created_at": datetime.utcnow()
         })
 
-        # ------------------- ตรวจหลักเลข -------------------
         number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
 
-        for digit_type, func in [("ten", get_tens_digit)]:
-            digit_value = func(number6_int)
-            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
+        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-        for digit_type, func in [("hundreds", get_hundreds_digit)]:
-            digit_value = func(number6_int)
-            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:
-            digit_value = func(number6_int)
-            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-        return jsonify({"message": "บันทึกสำเร็จ"}), 200
+        return jsonify({
+            "message": "บันทึกสำเร็จ"
+        }), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-
- # ------------------- Search Ticket -------------------
 # ------------------- Search Number -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
@@ -313,16 +306,20 @@ def search_number():
         if not number:
             return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
 
-        if not number.isdigit():
-            return jsonify({"error": "เลขต้องเป็นตัวเลขเท่านั้น"}), 400
-
         search_len = len(number)
-        if search_len not in [2, 3, 6]:
+        index_types = []
+
+        if search_len == 2:
+            index_types = ["2_top", "2_bottom"]
+        elif search_len == 3:
+            index_types = ["3_top", "3_bottom"]
+        elif search_len == 6:
+            index_types = ["6_exact"]
+        else:
             return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
 
         results = []
-        found_tickets = set()  # ป้องกัน ticket_id ซ้ำ
-        found_numbers = set()  # ป้องกัน user_id+เลข ซ้ำ
+        found_tickets = set()  # เก็บ ticket_id ที่เจอแล้ว
 
         for digit_type, func in [
             ("ten", get_tens_digit),
@@ -333,7 +330,7 @@ def search_number():
             index_name = f"{digit_value}_{digit_type}"
 
             idx_col_ref = db.collection("search_index").document(index_name)
-            subcollections = list(idx_col_ref.collections())
+            subcollections = list(idx_col_ref.collections())  # ดึงทุก subcollection
 
             for subcol in subcollections:
                 docs = list(subcol.stream())
@@ -343,48 +340,45 @@ def search_number():
                     tickets = doc.to_dict()
 
                     for ticket_id in tickets.keys():
-                        unique_key = f"{user_id}_{ticket_id}"
-                        if unique_key in found_tickets:
-                            continue  # ✅ ป้องกันซ้ำ
+                        if ticket_id in found_tickets:
+                            continue  # ข้ามถ้าเจอแล้ว
 
-                        ticket_ref = db.collection("lotterypost").document(user_id)
+                        ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
 
                         if not ticket_doc.exists:
                             continue
 
+                        # ดึงข้อมูลผู้ใช้
+                        user_ref = db.collection("users").document(user_id)
+                        user_doc = user_ref.get()
+                        phone = ""
+                        name = ""
+                        shop = ""
+
+                        if user_doc.exists:
+                            user_data = user_doc.to_dict()
+                            phone = user_data.get("phone", "")
+                            name = user_data.get("user_name", "")
+                            shop = user_data.get("shop_name", "")
+
                         ticket_data = ticket_doc.to_dict()
                         number6_str = str(ticket_data.get("number6", "")).zfill(6)
-                        unique_num_key = f"{user_id}_{number6_str}"
-
-                        # ✅ กันซ้ำกรณีเลขเดียวกันแต่เข้ามาจาก index คนละหลัก
-                        if unique_num_key in found_numbers:
-                            continue
-
                         match_type = None
+
                         if search_len == 2 and number == number6_str[-2:]:
                             match_type = "2 ตัวล่าง"
-                        elif search_len == 3 and number == number6_str[:3]:
+
+                        if search_len == 3 and number == number6_str[:3]:
                             match_type = "3 ตัวบน"
-                        elif search_len == 3 and number == number6_str[-3:]:
+
+                        if search_len == 3 and number == number6_str[-3:]:
                             match_type = "3 ตัวล่าง"
-                        elif search_len == 6 and number == number6_str:
+
+                        if search_len == 6 and number == number6_str:
                             match_type = "6 ตัวตรง"
 
                         if match_type:
-                            # ดึงข้อมูลผู้ใช้
-                            user_ref = db.collection("users").document(user_id)
-                            user_doc = user_ref.get()
-                            phone = ""
-                            name = ""
-                            shop = ""
-
-                            if user_doc.exists:
-                                user_data = user_doc.to_dict()
-                                phone = user_data.get("phone", "")
-                                name = user_data.get("user_name", "")
-                                shop = user_data.get("shop_name", "")
-
                             results.append({
                                 "user_id": user_id,
                                 "ticket_id": ticket_id,
@@ -396,9 +390,7 @@ def search_number():
                                 "shop": shop,
                                 "match_type": match_type
                             })
-
-                            found_tickets.add(unique_key)
-                            found_numbers.add(unique_num_key)
+                            found_tickets.add(ticket_id)
 
         return jsonify({"results": results}), 200
 
