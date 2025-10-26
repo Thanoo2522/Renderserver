@@ -251,8 +251,10 @@ def save_image():
         image_base64 = data.get("image_base64")
         number6 = data.get("number6")
         quantity = data.get("quantity")
+        priceuse = data.get("priceuse")
+        
 
-        if not user_id or not image_base64 or not number6 or not quantity:
+        if not user_id or not image_base64 or not number6 or not quantity or not priceuse:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
         image_bytes = base64.b64decode(image_base64)
@@ -274,7 +276,8 @@ def save_image():
             "image_url": image_url,
             "number6": number6,
             "quantity": quantity,
-            "created_at": datetime.utcnow()
+            "priceuse": priceuse
+            #"created_at": datetime.utcnow()
         })
 
         number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
