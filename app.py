@@ -156,12 +156,15 @@ if __name__ == "__main__":
 @app.route("/save_count", methods=["POST"])
 def save_count():
     try:
-        data = request.json
+        data = request.get_json(force=True)  # ✅ บังคับ parse JSON
+        
+        print("📥 รับข้อมูล:", data)  # Debug log
+
         user_id = data.get("user_id")
         numimage = data.get("numimage")
         numcall = data.get("numcall")
         status = data.get("status")
-        quota = data.get("quota") or data.get("Quota")  # ✅ รองรับทั้ง 2 แบบ
+        quota = data.get("quota") or data.get("Quota")
         startdatetime = data.get("startdatetime")
 
         if not user_id:
@@ -175,6 +178,8 @@ def save_count():
             "Quota": quota,
             "startdatetime": startdatetime
         }, merge=True)
+
+        print("✅ บันทึกสำเร็จ:", user_id, quota, startdatetime)
 
         return jsonify({
             "message": "บันทึกข้อมูลสำเร็จ",
