@@ -427,8 +427,8 @@ def get_tickets_by_user():
                 "ticket_id": t.id,
                 "image_url": t_data.get("image_url", ""),
                 "number6": str(t_data.get("number6", "")).zfill(6),
-                "quantity": t_data.get("quantity", 0),
-                "priceuse": t_data.get("priceuse", 0),
+                "quantity": int(t_data.get("quantity", 0)),
+                "priceuse": float(t_data.get("priceuse", 0)),  # ✅ บังคับให้เป็น number
             })
 
         return jsonify({"results": results}), 200
