@@ -388,9 +388,11 @@ def search_number():
                                 "image_url": ticket_data.get("image_url"),
                                 "number6": number6_str,
                                 "quantity": ticket_data.get("quantity"),
+                                 "priceuse": ticket_data.get("priceuse"),
                                 "phone": phone,
                                 "name": name,
                                 "shop": shop,
+                               
                                 "match_type": match_type
                             })
                             found_tickets.add(ticket_id)
