@@ -162,11 +162,11 @@ if __name__ == "__main__":
 @app.route("/save_count", methods=["POST"])
 def save_count():
     try:
-        data = request.get_json(force=True)  # ✅ บังคับ parse JSON
-        
-        print("📥 รับข้อมูล:", data)  # Debug log
+        data = request.get_json(force=True)
+        print("📥 รับข้อมูล:", data)
 
         user_id = data.get("user_id")
+        referrer_id = data.get("referrer_id", "")  # ✅ เพิ่ม referrer
         numimage = data.get("numimage")
         numcall = data.get("numcall")
         status = data.get("status")
@@ -182,14 +182,16 @@ def save_count():
             "numcall": numcall,
             "status": status,
             "Quota": quota,
-            "startdatetime": startdatetime
+            "startdatetime": startdatetime,
+            "referrer_id": referrer_id   # ✅ บันทึก referrer
         }, merge=True)
 
-        print("✅ บันทึกสำเร็จ:", user_id, quota, startdatetime)
+        print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
 
         return jsonify({
             "message": "บันทึกข้อมูลสำเร็จ",
             "user_id": user_id,
+            "referrer_id": referrer_id,
             "Quota": quota,
             "startdatetime": startdatetime
         }), 200
@@ -323,57 +325,62 @@ def save_image():
     try:
         data = request.json
         user_id = data.get("user_id")
+        referrer_id = data.get("referrer_id", "")  # ✅ เพิ่ม referrer
         image_base64 = data.get("image_base64")
         number6 = data.get("number6")
         quantity = data.get("quantity")
         priceuse = data.get("priceuse")
-        
 
         if not user_id or not image_base64 or not number6 or not quantity or not priceuse:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
+        # แปลงภาพ
         image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
-
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
+        # อัปโหลดไป Firebase Storage
         blob = bucket.blob(f"lotterypost/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
-
         image_url = blob.public_url
+
         ticket_id = str(uuid.uuid4())
 
+        # บันทึก Firestore
         doc_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
             "quantity": quantity,
-            "priceuse": priceuse
-            #"created_at": datetime.utcnow()
+            "priceuse": priceuse,
+            "referrer_id": referrer_id  # ✅ บันทึก referrer
         })
 
-        number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
+        number6_int = int(number6)
 
-        # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
-        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        # ✅ อัปเดตดัชนีค้นหาเลขตามหลัก
+        for digit_type, func in [("ten", get_tens_digit)]:
+            digit_value = func(number6_int)
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id, referrer_id)
 
-        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("hundreds", get_hundreds_digit)]:
+            digit_value = func(number6_int)
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id, referrer_id)
 
-        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:
+            digit_value = func(number6_int)
+            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id, referrer_id)
 
-        return jsonify({
-            "message": "บันทึกสำเร็จ"
-        }), 200
+        return jsonify({"message": "บันทึกสำเร็จ"}), 200
 
     except Exception as e:
+        import traceback
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
 # ------------------- Search Number -------------------
 @app.route("/search_number", methods=["POST"])
 def search_number():
