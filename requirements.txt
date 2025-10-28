@@ -8,6 +8,7 @@ boto3
 psycopg2-binary
 firebase-admin
 agora-token-builder==1.0.0
+qrcode[pil]
  
 
  
