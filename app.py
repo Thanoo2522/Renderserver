@@ -13,6 +13,9 @@ import firebase_admin
 from firebase_admin import credentials, storage, firestore
 import qrcode
 import io
+from io import BytesIO
+import firebase_admin
+from firebase_admin import credentials, firestore
  
  
 
@@ -196,64 +199,97 @@ def save_count():
         return jsonify({"error": str(e)}), 500
 
 # ------------------- Save User Profile -------------------
+# ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
-    try:
-        data = request.get_json()
-        user_id = data.get("user_id")
-        referrer_id = data.get("referrer_id", "")
-        shop_name = data.get("shop_name")
-        user_name = data.get("user_name")
-        phone = data.get("phone")
-        register_date = data.get("register_date")
+    data = request.get_json()
+    user_id = data.get("user_id")          # deviceId
+    shop_name = data.get("shop_name")
+    user_name = data.get("user_name")
+    phone = data.get("phone")
+    referrer_id = data.get("referrer_id", "")
+    register_date = data.get("register_date")
 
-        if not user_id:
-            return jsonify({"error": "missing user_id"}), 400
+    if not user_id or not phone:
+        return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
 
-        user_ref = db.collection("users").document(user_id)
-        user_ref.set({
-            "user_id": user_id,
-            "shop_name": shop_name,
-            "user_name": user_name,
-            "phone": phone,
-            "register_date": register_date,
-            "referrer_id": referrer_id,
-            "children": []
-        })
+    # ------------------- บันทึก Firestore -------------------
+    doc_ref = db.collection("users").document(user_id)
+    doc_ref.set({
+        "shop_name": shop_name,
+        "user_name": user_name,
+        "phone": phone,
+        "referrer_id": referrer_id,
+        "register_date": register_date
+    }, merge=True)
 
-        if referrer_id:
-            ref_doc = db.collection("users").document(referrer_id)
-            doc = ref_doc.get()
-            if doc.exists:
-                children = doc.to_dict().get("children", [])
-                if user_id not in children:
-                    children.append(user_id)
-                    ref_doc.update({"children": children})
+    return jsonify({"status": "success"}), 200
 
-        return jsonify({"message": "user saved"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    #--------------------------------------------------------------------
+
+
+# ------------------- Generate QR -------------------
 @app.route("/generate_qr", methods=["POST"])
 def generate_qr():
-    try:
-        data = request.get_json()
-        user_id = data.get("user_id")
-        if not user_id:
-            return jsonify({"error": "missing user_id"}), 400
+    data = request.get_json()
+    user_id = data.get("user_id")  # deviceId หรือ phonenum
+    if not user_id:
+        return jsonify({"error": "user_id ต้องไม่ว่าง"}), 400
 
-        qr_link = f"https://lottery4.app/register?ref={user_id}"
+    # ------------------- URL สำหรับ QR (Play Store) -------------------
+    qr_link = f"https://playstore.link/app?id=your_app_id&ref={user_id}"
 
-        import qrcode, io, base64
-        qr = qrcode.make(qr_link)
-        buffer = io.BytesIO()
-        qr.save(buffer, format="PNG")
-        qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+    # ------------------- สร้าง QR -------------------
+    qr = qrcode.make(qr_link)
+    buffer = BytesIO()
+    qr.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
-        return f"data:image/png;base64,{qr_base64}"
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # ------------------- บันทึก Firestore -------------------
+    doc_ref = db.collection("users").document(user_id)
+    doc_ref.set({
+        "qr_base64": qr_base64,
+        "qr_link": qr_link
+    }, merge=True)
 
+    return jsonify({
+        "status": "success",
+        "qr_base64": qr_base64,
+        "qr_link": qr_link
+    }), 200
+
+    #-------------------------สร้างด้วยเบอร์โทร-------------------------------------------
+@app.route("/create_qr", methods=["POST"])
+def create_qr():
+    data = request.get_json()
+    seller_id = data.get("phone")  # เบอร์โทรผู้ขาย
+    link = data.get("link", "https://playstore.link/app?id=123")
+
+    qr = qrcode.make(link)
+    buffer = BytesIO()
+    qr.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+    doc_ref = db.collection("sellers").document(seller_id)
+    doc_ref.set({
+        "qr_base64": qr_base64,
+        "link": link
+    }, merge=True)
+
+    return jsonify({"status": "success", "qr_base64": qr_base64})
+    #-----------------------Flask ดึง QR base64 ตามเบอร์โทร----------------------------------
+@app.route("/get_qr/<phone>", methods=["GET"])
+def get_qr(phone):
+    doc_ref = db.collection("sellers").document(phone)
+    doc = doc_ref.get()
+    if doc.exists:
+        data = doc.to_dict()
+        return jsonify({
+            "phone": phone,
+            "qr_base64": data.get("qr_base64"),
+            "link": data.get("link")
+        })
+    else:
+        return jsonify({"error": "Seller not found"}), 404
 
 # ------------------ ฟังก์ชันคำนวณหลักเลข ------------------------
 def get_tens_digit(number: int) -> int:
