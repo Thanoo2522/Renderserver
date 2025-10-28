@@ -159,48 +159,7 @@ def get_count():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)   
 # ---------------- บันทึกการนับภาพ นับการคลิกโทร ----------------
-@app.route("/save_count", methods=["POST"])
-def save_count():
-    try:
-        data = request.get_json(force=True)
-        print("📥 รับข้อมูล:", data)
 
-        user_id = data.get("user_id")
-        referrer_id = data.get("referrer_id", "")  # ✅ เพิ่ม referrer
-        numimage = data.get("numimage")
-        numcall = data.get("numcall")
-        status = data.get("status")
-        quota = data.get("quota") or data.get("Quota")
-        startdatetime = data.get("startdatetime")
-
-        if not user_id:
-            return jsonify({"error": "ต้องระบุ user_id"}), 400
-
-        doc_ref = db.collection("count_process").document(user_id)
-        doc_ref.set({
-            "numimage": numimage,
-            "numcall": numcall,
-            "status": status,
-            "Quota": quota,
-            "startdatetime": startdatetime,
-            "referrer_id": referrer_id   # ✅ บันทึก referrer
-        }, merge=True)
-
-        print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
-
-        return jsonify({
-            "message": "บันทึกข้อมูลสำเร็จ",
-            "user_id": user_id,
-            "referrer_id": referrer_id,
-            "Quota": quota,
-            "startdatetime": startdatetime
-        }), 200
-
-    except Exception as e:
-        print("❌ SERVER ERROR:", e)
-        return jsonify({"error": str(e)}), 500
-
-# ------------------- Save User Profile -------------------
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
@@ -307,17 +266,70 @@ def get_digits(number: int, start: int, end: int) -> int:
 def get_hundred_thousands_digit(number: int) -> int:
     return (int(number) // 100000) % 10
 
-def update_search_index(index_type, num, user_id, ticket_id):
-    if not num:
-        print("❌ update_search_index: num ว่าง")
-        return
+# ------------------- Update Search Index -------------------
+def update_search_index(user_id, numimage, numcall, referrer_id=None):
+    """
+    ฟังก์ชันนี้อัปเดต search index หรือสถิติอื่น ๆ
+    referrer_id ถูกตั้งเป็น optional เพื่อไม่ให้เกิด error
+    """
+    print(f"Updating search index: user_id={user_id}, numimage={numimage}, numcall={numcall}, referrer_id={referrer_id}")
+    # ตัวอย่าง logic:
+    doc_ref = db.collection("search_index").document(user_id)
+    doc_ref.set({
+        "numimage": numimage,
+        "numcall": numcall,
+        "referrer_id": referrer_id
+    }, merge=True)
+
+# ------------------- Save Count -------------------
+@app.route("/save_count", methods=["POST"])
+def save_count():
     try:
-        db.collection("search_index").document(index_type).collection(str(num)).document(user_id).set({
-            ticket_id: True
-        })
-        print(f"✅ บันทึก {index_type}/{num}/{user_id} สำเร็จ")
+        data = request.get_json(force=True)
+        print("📥 รับข้อมูล:", data)
+
+        user_id = data.get("user_id")
+        referrer_id = data.get("referrer_id", "")  # ✅ รองรับ optional
+        numimage = data.get("numimage")
+        numcall = data.get("numcall")
+        status = data.get("status", "pass")
+        quota = data.get("quota") or data.get("Quota")
+        startdatetime = data.get("startdatetime")
+
+        if not user_id:
+            return jsonify({"error": "ต้องระบุ user_id"}), 400
+
+        # บันทึกข้อมูล count_process
+        doc_ref = db.collection("count_process").document(user_id)
+        doc_ref.set({
+            "numimage": numimage,
+            "numcall": numcall,
+            "status": status,
+            "Quota": quota,
+            "startdatetime": startdatetime,
+            "referrer_id": referrer_id
+        }, merge=True)
+
+        print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
+
+        # ------------------- เรียก update_search_index -------------------
+        update_search_index(user_id, numimage, numcall, referrer_id)
+
+        return jsonify({
+            "message": "บันทึกข้อมูลสำเร็จ",
+            "user_id": user_id,
+            "referrer_id": referrer_id,
+            "Quota": quota,
+            "startdatetime": startdatetime
+        }), 200
+
     except Exception as e:
-        print(f"❌ Firestore error: {e}")
+        print("❌ SERVER ERROR:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ------------------- Run Flask -------------------
+if __name__ == "__main__":
+    app.run(debug=True)
 
 
 @app.route("/save_image", methods=["POST"])
