@@ -333,8 +333,7 @@ def save_count():
 # ------------------- Run Flask -------------------
 if __name__ == "__main__":
     app.run(debug=True)
-
-
+    
 @app.route("/save_image", methods=["POST"])
 def save_image():
     try:
@@ -349,7 +348,7 @@ def save_image():
         if not user_id or not image_base64 or not number6 or not quantity or not priceuse:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        # แปลงภาพ
+        # แปลงภาพเป็น bytes
         image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
@@ -362,6 +361,7 @@ def save_image():
         blob.make_public()
         image_url = blob.public_url
 
+        # ---------------- สร้าง ticket_id เพียงครั้งเดียว ----------------
         ticket_id = str(uuid.uuid4())
 
         # บันทึก Firestore
@@ -374,9 +374,10 @@ def save_image():
             "referrer_id": referrer_id
         })
 
+        # แปลง number6 เป็น int สำหรับอัปเดต index
         number6_int = int(number6)
 
-        # อัปเดต search index ตามหลักเลข
+        # อัปเดต search index ตามหลักเลข (ใช้ ticket_id เดียวกัน)
         for digit_type, func in [("ten", get_tens_digit),
                                  ("hundreds", get_hundreds_digit),
                                  ("hundred_thousands", get_hundred_thousands_digit)]:
@@ -390,6 +391,8 @@ def save_image():
         import traceback
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
+
 
 # ------------------- Search Number -------------------
 @app.route("/search_number", methods=["POST"])
