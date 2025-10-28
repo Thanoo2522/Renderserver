@@ -11,6 +11,9 @@ import time
 import requests
 import firebase_admin
 from firebase_admin import credentials, storage, firestore
+import qrcode
+import io
+ 
  
 
 app = Flask(__name__)
@@ -196,30 +199,61 @@ def save_count():
 @app.route("/save_user", methods=["POST"])
 def save_user():
     try:
-        data = request.json
+        data = request.get_json()
+        user_id = data.get("user_id")
+        referrer_id = data.get("referrer_id", "")
         shop_name = data.get("shop_name")
         user_name = data.get("user_name")
         phone = data.get("phone")
-        user_id = data.get("user_id")
-
-        if not shop_name or not user_name or not phone:
-            return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
+        register_date = data.get("register_date")
 
         if not user_id:
-            user_id = str(uuid.uuid4())
+            return jsonify({"error": "missing user_id"}), 400
 
-        doc_ref = db.collection("users").document(user_id)
-        doc_ref.set({
+        user_ref = db.collection("users").document(user_id)
+        user_ref.set({
+            "user_id": user_id,
             "shop_name": shop_name,
             "user_name": user_name,
-            "phone": phone
+            "phone": phone,
+            "register_date": register_date,
+            "referrer_id": referrer_id,
+            "children": []
         })
 
-        #return jsonify({"message": "บันทึก profile สำเร็จ", "id": user_id}), 200
-        return jsonify({"message": "บันทึก profile สำเร็จ"}), 200
+        if referrer_id:
+            ref_doc = db.collection("users").document(referrer_id)
+            doc = ref_doc.get()
+            if doc.exists:
+                children = doc.to_dict().get("children", [])
+                if user_id not in children:
+                    children.append(user_id)
+                    ref_doc.update({"children": children})
 
+        return jsonify({"message": "user saved"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    #--------------------------------------------------------------------
+@app.route("/generate_qr", methods=["POST"])
+def generate_qr():
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        if not user_id:
+            return jsonify({"error": "missing user_id"}), 400
+
+        qr_link = f"https://lottery4.app/register?ref={user_id}"
+
+        import qrcode, io, base64
+        qr = qrcode.make(qr_link)
+        buffer = io.BytesIO()
+        qr.save(buffer, format="PNG")
+        qr_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        return f"data:image/png;base64,{qr_base64}"
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 # ------------------ ฟังก์ชันคำนวณหลักเลข ------------------------
 def get_tens_digit(number: int) -> int:
