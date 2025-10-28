@@ -267,17 +267,20 @@ def get_hundred_thousands_digit(number: int) -> int:
     return (int(number) // 100000) % 10
 
 # ------------------- Update Search Index -------------------
-def update_search_index(user_id, numimage, numcall, referrer_id=None):
+def update_search_index(index_id, number6, user_id, ticket_id, referrer_id=None):
     """
-    ฟังก์ชันนี้อัปเดต search index หรือสถิติอื่น ๆ
-    referrer_id ถูกตั้งเป็น optional เพื่อไม่ให้เกิด error
+    อัปเดต search index
+    index_id: key สำหรับ index (เช่น "5_ten")
+    number6: เลข 6 หลัก
+    user_id: เจ้าของเลข
+    ticket_id: ไอดีของ ticket
+    referrer_id: ไอดีผู้แนะนำ (optional)
     """
-    print(f"Updating search index: user_id={user_id}, numimage={numimage}, numcall={numcall}, referrer_id={referrer_id}")
-    # ตัวอย่าง logic:
-    doc_ref = db.collection("search_index").document(user_id)
+    print(f"Updating search index: index_id={index_id}, number6={number6}, user_id={user_id}, ticket_id={ticket_id}, referrer_id={referrer_id}")
+    doc_ref = db.collection("search_index").document(index_id).collection("tickets").document(ticket_id)
     doc_ref.set({
-        "numimage": numimage,
-        "numcall": numcall,
+        "number6": number6,
+        "user_id": user_id,
         "referrer_id": referrer_id
     }, merge=True)
 
@@ -289,7 +292,7 @@ def save_count():
         print("📥 รับข้อมูล:", data)
 
         user_id = data.get("user_id")
-        referrer_id = data.get("referrer_id", "")  # ✅ รองรับ optional
+        referrer_id = data.get("referrer_id", "")  # optional
         numimage = data.get("numimage")
         numcall = data.get("numcall")
         status = data.get("status", "pass")
@@ -299,7 +302,7 @@ def save_count():
         if not user_id:
             return jsonify({"error": "ต้องระบุ user_id"}), 400
 
-        # บันทึกข้อมูล count_process
+        # บันทึก count_process
         doc_ref = db.collection("count_process").document(user_id)
         doc_ref.set({
             "numimage": numimage,
@@ -312,7 +315,7 @@ def save_count():
 
         print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
 
-        # ------------------- เรียก update_search_index -------------------
+        # เรียก update_search_index
         update_search_index(user_id, numimage, numcall, referrer_id)
 
         return jsonify({
@@ -337,7 +340,7 @@ def save_image():
     try:
         data = request.json
         user_id = data.get("user_id")
-        referrer_id = data.get("referrer_id", "")  # ✅ เพิ่ม referrer
+        referrer_id = data.get("referrer_id", "")
         image_base64 = data.get("image_base64")
         number6 = data.get("number6")
         quantity = data.get("quantity")
@@ -353,7 +356,7 @@ def save_image():
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # อัปโหลดไป Firebase Storage
+        # อัปโหลด Firebase Storage
         blob = bucket.blob(f"lotterypost/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
@@ -368,23 +371,18 @@ def save_image():
             "number6": number6,
             "quantity": quantity,
             "priceuse": priceuse,
-            "referrer_id": referrer_id  # ✅ บันทึก referrer
+            "referrer_id": referrer_id
         })
 
         number6_int = int(number6)
 
-        # ✅ อัปเดตดัชนีค้นหาเลขตามหลัก
-        for digit_type, func in [("ten", get_tens_digit)]:
+        # อัปเดต search index ตามหลักเลข
+        for digit_type, func in [("ten", get_tens_digit),
+                                 ("hundreds", get_hundreds_digit),
+                                 ("hundred_thousands", get_hundred_thousands_digit)]:
             digit_value = func(number6_int)
-            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id, referrer_id)
-
-        for digit_type, func in [("hundreds", get_hundreds_digit)]:
-            digit_value = func(number6_int)
-            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id, referrer_id)
-
-        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:
-            digit_value = func(number6_int)
-            update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id, referrer_id)
+            index_id = f"{digit_value}_{digit_type}"
+            update_search_index(index_id, number6, user_id, ticket_id, referrer_id)
 
         return jsonify({"message": "บันทึกสำเร็จ"}), 200
 
