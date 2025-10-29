@@ -284,10 +284,9 @@ def update_search_saller(index_type, num, saller, ticket_id, user_id):
         print("❌ update_search_saller: ข้อมูลไม่ครบ")
         return
     try:
-        db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
-            "ticket_id": ticket_id,
-            "user_id": user_id
-        })
+         db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
+          ticket_id: {"user_id": user_id}
+         })
         print(f"✅ บันทึก {index_type}/{num}/{saller} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
@@ -347,7 +346,7 @@ def save_image():
     try:
         data = request.json
         user_id = data.get("user_id")
-        referrer_id = data.get("referrer_id", "")
+        referrer_id = data.get("referrer_id", "") 
         image_base64 = data.get("image_base64")
         number6 = data.get("number6")
         quantity = data.get("quantity")
@@ -394,6 +393,8 @@ def save_image():
 
             update_search_index(index_id, number6, user_id, ticket_id)
             update_search_saller(index_id, number6, referrer_id, ticket_id, user_id)
+
+ 
         return jsonify({"message": "บันทึกสำเร็จ"}), 200
 
     except Exception as e:
@@ -409,7 +410,7 @@ def search_number_priority():
     try:
         data = request.json
         number = data.get("number")
-        saller = data.get("referrer_id")  # เบอร์โทรของผู้ขาย / referrer_id
+        saller = data.get("saller")  # เบอร์โทรของผู้ขาย / referrer_id
         max_results = 100
 
         if not number:
