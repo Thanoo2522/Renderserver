@@ -267,23 +267,31 @@ def get_hundred_thousands_digit(number: int) -> int:
     return (int(number) // 100000) % 10
 
 # ------------------- Update Search Index -------------------
-def update_search_index(index_id, number6, user_id, ticket_id, referrer_id=None):
-    """
-    อัปเดต search index
-    index_id: key สำหรับ index (เช่น "5_ten")
-    number6: เลข 6 หลัก
-    user_id: เจ้าของเลข
-    ticket_id: ไอดีของ ticket
-    referrer_id: ไอดีผู้แนะนำ (optional)
-    """
-    print(f"Updating search index: index_id={index_id}, number6={number6}, user_id={user_id}, ticket_id={ticket_id}, referrer_id={referrer_id}")
-    doc_ref = db.collection("search_index").document(index_id).collection("tickets").document(ticket_id)
-    doc_ref.set({
-        "number6": number6,
-        "user_id": user_id,
-        "referrer_id": referrer_id
-    }, merge=True)
-
+def update_search_index(index_type, num, user_id, ticket_id):
+    if not num:
+        print("❌ update_search_index: num ว่าง")
+        return
+    try:
+        db.collection("search_index").document(index_type).collection(str(num)).document(user_id).set({
+            ticket_id: True
+        })
+        print(f"✅ บันทึก {index_type}/{num}/{user_id} สำเร็จ")
+    except Exception as e:
+        print(f"❌ Firestore error: {e}")
+# ------------------- Update Search   saller -------------------
+def update_search_saller(index_type, num, saller, ticket_id, user_id):
+    if not num or not saller:
+        print("❌ update_search_saller: ข้อมูลไม่ครบ")
+        return
+    try:
+        db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
+            "ticket_id": ticket_id,
+            "user_id": user_id
+        })
+        print(f"✅ บันทึก {index_type}/{num}/{saller} สำเร็จ")
+    except Exception as e:
+        print(f"❌ Firestore error: {e}")
+       
 # ------------------- Save Count -------------------
 @app.route("/save_count", methods=["POST"])
 def save_count():
@@ -333,7 +341,7 @@ def save_count():
 # ------------------- Run Flask -------------------
 if __name__ == "__main__":
     app.run(debug=True)
-    
+
 @app.route("/save_image", methods=["POST"])
 def save_image():
     try:
@@ -371,7 +379,7 @@ def save_image():
             "number6": number6,
             "quantity": quantity,
             "priceuse": priceuse,
-            "referrer_id": referrer_id
+            "referrer_id": referrer_id    # เป็นเบอร์โทรของผู้แนะนำ
         })
 
         # แปลง number6 เป็น int สำหรับอัปเดต index
@@ -383,8 +391,9 @@ def save_image():
                                  ("hundred_thousands", get_hundred_thousands_digit)]:
             digit_value = func(number6_int)
             index_id = f"{digit_value}_{digit_type}"
-            update_search_index(index_id, number6, user_id, ticket_id, referrer_id)
 
+            update_search_index(index_id, number6, user_id, ticket_id)
+            update_search_saller(index_id, number6, referrer_id, ticket_id, user_id)
         return jsonify({"message": "บันทึกสำเร็จ"}), 200
 
     except Exception as e:
@@ -395,108 +404,145 @@ def save_image():
 
 
 # ------------------- Search Number -------------------
-@app.route("/search_number", methods=["POST"])
-def search_number():
+@app.route("/search_number_priority", methods=["POST"])
+def search_number_priority():
     try:
         data = request.json
         number = data.get("number")
+        saller = data.get("saller")  # เช่น เบอร์โทรของผู้ขาย / referrer_id
+        max_results = 100
 
         if not number:
             return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
 
         search_len = len(number)
-        index_types = []
-
-        if search_len == 2:
-            index_types = ["2_top", "2_bottom"]
-        elif search_len == 3:
-            index_types = ["3_top", "3_bottom"]
-        elif search_len == 6:
-            index_types = ["6_exact"]
-        else:
+        if search_len not in [2, 3, 6]:
             return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
 
         results = []
-        found_tickets = set()  # เก็บ ticket_id ที่เจอแล้ว
+        found_tickets = set()
 
-        for digit_type, func in [
-            ("ten", get_tens_digit),
-            ("hundreds", get_hundreds_digit),
-            ("hundred_thousands", get_hundred_thousands_digit)
-        ]:
-            digit_value = func(int(number))
-            index_name = f"{digit_value}_{digit_type}"
+        # --------------------
+        # 1️⃣ ค้นจากสายผู้แนะนำก่อน
+        # --------------------
+        if saller:
+            saller_ref = db.collection("search_index").document(saller)
+            saller_collections = list(saller_ref.collections())
 
-            idx_col_ref = db.collection("search_index").document(index_name)
-            subcollections = list(idx_col_ref.collections())  # ดึงทุก subcollection
+            for subcol in saller_collections:
+                for doc in subcol.stream():
+                    doc_data = doc.to_dict()
+                    user_id = doc_data.get("user_id")
+                    ticket_id = doc_data.get("ticket_id")
+                    if not user_id or not ticket_id:
+                        continue
 
-            for subcol in subcollections:
-                docs = list(subcol.stream())
+                    ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+                    ticket_doc = ticket_ref.get()
+                    if not ticket_doc.exists:
+                        continue
 
-                for doc in docs:
-                    user_id = doc.id
-                    tickets = doc.to_dict()
+                    ticket_data = ticket_doc.to_dict()
+                    number6_str = str(ticket_data.get("number6", "")).zfill(6)
 
-                    for ticket_id in tickets.keys():
-                        if ticket_id in found_tickets:
-                            continue  # ข้ามถ้าเจอแล้ว
+                    # ตรวจจับรูปแบบการตรง
+                    match_type = get_match_type(number, number6_str, search_len)
+                    if match_type:
+                        results.append({
+                            "user_id": user_id,
+                            "ticket_id": ticket_id,
+                            "image_url": ticket_data.get("image_url"),
+                            "number6": number6_str,
+                            "quantity": ticket_data.get("quantity"),
+                            "seller": saller,
+                            "match_type": match_type
+                        })
+                        found_tickets.add(ticket_id)
 
-                        ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
-                        ticket_doc = ticket_ref.get()
+                    if len(results) >= max_results:
+                        break
+                if len(results) >= max_results:
+                    break
 
-                        if not ticket_doc.exists:
-                            continue
+        # --------------------
+        # 2️⃣ ถ้ายังไม่ครบ 100 ให้ไปค้นจาก index หลัก
+        # --------------------
+        if len(results) < max_results:
+            # คำนวณชื่อ index ตามหลักเลข (2 ตัว / 3 ตัว / 6 ตัว)
+            index_name = get_index_name(number)
+            idx_ref = db.collection("search_index").document(index_name)
 
-                        # ดึงข้อมูลผู้ใช้
-                        user_ref = db.collection("users").document(user_id)
-                        user_doc = user_ref.get()
-                        phone = ""
-                        name = ""
-                        shop = ""
+            # รวมทุก subcollection ใน index หลัก
+            for subcol in idx_ref.collections():
+                for doc in subcol.stream():
+                    doc_data = doc.to_dict()
+                    user_id = doc_data.get("user_id")
+                    ticket_id = doc_data.get("ticket_id")
+                    if not user_id or not ticket_id:
+                        continue
+                    if ticket_id in found_tickets:
+                        continue
 
-                        if user_doc.exists:
-                            user_data = user_doc.to_dict()
-                            phone = user_data.get("phone", "")
-                            name = user_data.get("user_name", "")
-                            shop = user_data.get("shop_name", "")
+                    ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+                    ticket_doc = ticket_ref.get()
+                    if not ticket_doc.exists:
+                        continue
 
-                        ticket_data = ticket_doc.to_dict()
-                        number6_str = str(ticket_data.get("number6", "")).zfill(6)
-                        match_type = None
+                    ticket_data = ticket_doc.to_dict()
+                    number6_str = str(ticket_data.get("number6", "")).zfill(6)
+                    match_type = get_match_type(number, number6_str, search_len)
+                    if match_type:
+                        results.append({
+                            "user_id": user_id,
+                            "ticket_id": ticket_id,
+                            "image_url": ticket_data.get("image_url"),
+                            "number6": number6_str,
+                            "quantity": ticket_data.get("quantity"),
+                            "seller": ticket_data.get("referrer_id", ""),
+                            "match_type": match_type
+                        })
+                        found_tickets.add(ticket_id)
 
-                        if search_len == 2 and number == number6_str[-2:]:
-                            match_type = "2 ตัวล่าง"
+                    if len(results) >= max_results:
+                        break
+                if len(results) >= max_results:
+                    break
 
-                        if search_len == 3 and number == number6_str[:3]:
-                            match_type = "3 ตัวบน"
-
-                        if search_len == 3 and number == number6_str[-3:]:
-                            match_type = "3 ตัวล่าง"
-
-                        if search_len == 6 and number == number6_str:
-                            match_type = "6 ตัวตรง"
-
-                        if match_type:
-                            results.append({
-                                "user_id": user_id,
-                                "ticket_id": ticket_id,
-                                "image_url": ticket_data.get("image_url"),
-                                "number6": number6_str,
-                                "quantity": ticket_data.get("quantity"),
-                                 "priceuse": ticket_data.get("priceuse"),
-                                "phone": phone,
-                                "name": name,
-                                "shop": shop,
-                               
-                                "match_type": match_type
-                            })
-                            found_tickets.add(ticket_id)
-
-        return jsonify({"results": results}), 200
+        return jsonify({"results": results[:max_results]}), 200
 
     except Exception as e:
+        import traceback
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
+
+# -------------------
+# 🔧 Helper functions
+# -------------------
+def get_match_type(search, number6, length):
+    if length == 2 and search == number6[-2:]:
+        return "2 ตัวล่าง"
+    elif length == 3 and search == number6[:3]:
+        return "3 ตัวบน"
+    elif length == 3 and search == number6[-3:]:
+        return "3 ตัวล่าง"
+    elif length == 6 and search == number6:
+        return "6 ตัวตรง"
+    return None
+
+
+def get_index_name(number):
+    n = int(number)
+    if len(number) == 2:
+        return f"{n}_ten"
+    elif len(number) == 3:
+        return f"{n}_hundreds"
+    elif len(number) == 6:
+        return f"{n}_hundred_thousands"
+    else:
+        return "unknown"
+
+
 #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
 @app.route("/get_tickets_by_user", methods=["POST"])
 def get_tickets_by_user():
