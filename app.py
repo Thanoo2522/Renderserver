@@ -285,7 +285,8 @@ def update_search_saller(index_type, num, saller, ticket_id, user_id):
         return
     try:
         db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
-             ticket_id: True
+            "ticket_id": ticket_id,
+            "user_id": user_id
         })
         print(f"✅ บันทึก {index_type}/{num}/{saller} สำเร็จ")
     except Exception as e:
@@ -408,7 +409,7 @@ def search_number_priority():
     try:
         data = request.json
         number = data.get("number")
-        saller = data.get("saller")  # เบอร์โทรของผู้ขาย / referrer_id
+        saller = data.get("referrer_id")  # เบอร์โทรของผู้ขาย / referrer_id
         max_results = 100
 
         if not number:
