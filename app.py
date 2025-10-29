@@ -284,13 +284,13 @@ def update_search_saller(index_type, num, saller, ticket_id, user_id):
         print("❌ update_search_saller: ข้อมูลไม่ครบ")
         return
     try:
-         db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
-          ticket_id: {"user_id": user_id}
-         })
+        db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
+            ticket_id: {"user_id": user_id}
+        })
         print(f"✅ บันทึก {index_type}/{num}/{saller} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
-       
+
 # ------------------- Save Count -------------------
 @app.route("/save_count", methods=["POST"])
 def save_count():
