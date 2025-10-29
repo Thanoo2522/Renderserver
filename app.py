@@ -285,8 +285,7 @@ def update_search_saller(index_type, num, saller, ticket_id, user_id):
         return
     try:
         db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
-            "ticket_id": ticket_id,
-            "user_id": user_id
+             ticket_id: True
         })
         print(f"✅ บันทึก {index_type}/{num}/{saller} สำเร็จ")
     except Exception as e:
