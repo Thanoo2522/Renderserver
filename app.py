@@ -422,52 +422,50 @@ def search_number_priority():
 
         results = []
         found_tickets = set()
+        searched_saller = False
 
         # -------------------------
         # 1️⃣ ค้นจากสายผู้แนะนำก่อน
         # -------------------------
-        searched_saller = False
         if saller:
+            searched_saller = True
             saller_ref = db.collection("search_index").document(saller)
             saller_collections = list(saller_ref.collections())
 
-            if saller_collections:  # ✅ ถ้ามีข้อมูลจริงใน saller
-                searched_saller = True
-                print(f"🔎 ค้นในสายผู้แนะนำ: {saller}")
+            for index_col in saller_collections:  # index_col = ten, hundreds, hundred_thousands
+                for num_doc in index_col.stream():  # num_doc.id = num
+                    doc_data = num_doc.to_dict()    # {ticket_id: {"user_id": user_id}}
+                    for ticket_id, info in doc_data.items():
+                        user_id = info.get("user_id")
+                        if not user_id or ticket_id in found_tickets:
+                            continue
 
-                for subcol in saller_collections:
-                    for doc in subcol.stream():
-                        doc_data = doc.to_dict()
-                        for ticket_id, active in doc_data.items():
-                            if not active:
-                                continue
+                        ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+                        ticket_doc = ticket_ref.get()
+                        if not ticket_doc.exists:
+                            continue
 
-                            user_id = doc.id
-                            ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
-                            ticket_doc = ticket_ref.get()
-                            if not ticket_doc.exists:
-                                continue
+                        ticket_data = ticket_doc.to_dict()
+                        number6_str = str(ticket_data.get("number6", "")).zfill(6)
+                        match_type = get_match_type(number, number6_str, search_len)
 
-                            ticket_data = ticket_doc.to_dict()
-                            number6_str = str(ticket_data.get("number6", "")).zfill(6)
-                            match_type = get_match_type(number, number6_str, search_len)
-                            if match_type:
-                                results.append({
-                                    "user_id": user_id,
-                                    "ticket_id": ticket_id,
-                                    "image_url": ticket_data.get("image_url"),
-                                    "number6": number6_str,
-                                    "quantity": ticket_data.get("quantity"),
-                                    "seller": saller,
-                                    "match_type": match_type
-                                })
-                                found_tickets.add(ticket_id)
+                        if match_type:
+                            results.append({
+                                "user_id": user_id,
+                                "ticket_id": ticket_id,
+                                "image_url": ticket_data.get("image_url"),
+                                "number6": number6_str,
+                                "quantity": ticket_data.get("quantity"),
+                                "seller": saller,
+                                "match_type": match_type
+                            })
+                            found_tickets.add(ticket_id)
 
-                            if len(results) >= max_results:
-                                break
+                        if len(results) >= max_results:
+                            break
                     if len(results) >= max_results:
                         break
-            else:
+            if not results:
                 print(f"⚠️ ไม่มีข้อมูลในสายผู้แนะนำ: {saller}")
 
         # -------------------------
@@ -482,10 +480,10 @@ def search_number_priority():
                 for doc in subcol.stream():
                     doc_data = doc.to_dict()
                     for user_id, active in doc_data.items():
-                        if not active:
+                        if not active or user_id in found_tickets:
                             continue
-                        ticket_id = list(doc_data.keys())[0]
 
+                        ticket_id = list(doc_data.keys())[0]  # ดึง ticket_id ตัวแรก
                         ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
                         if not ticket_doc.exists:
