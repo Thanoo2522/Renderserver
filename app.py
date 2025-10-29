@@ -430,9 +430,9 @@ def search_number_priority():
         if saller:
             searched_saller = True
             saller_ref = db.collection("search_index").document(saller)
-            
-            for index_col in saller_ref.collections():  # loop ทีละ collection
-                for num_doc in index_col.stream():  # loop ทีละ document
+
+            for index_col in saller_ref.collections():
+                for num_doc in index_col.stream():
                     if len(results) >= max_results:
                         break
 
@@ -442,29 +442,49 @@ def search_number_priority():
                             continue
                         if not isinstance(info, dict):
                             continue
+
                         user_id = info.get("user_id")
                         if not user_id:
                             continue
 
+                        # ดึง ticket
                         ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
                         if not ticket_doc.exists:
                             continue
-
                         ticket_data = ticket_doc.to_dict() or {}
                         number6_str = str(ticket_data.get("number6", "")).zfill(6)
                         match_type = get_match_type(number, number6_str, search_len)
-                        if match_type:
-                            results.append({
-                                "user_id": user_id,
-                                "ticket_id": ticket_id,
-                                "image_url": ticket_data.get("image_url"),
-                                "number6": number6_str,
-                                "quantity": ticket_data.get("quantity"),
-                                "seller": saller,
-                                "match_type": match_type
-                            })
-                            found_tickets.add(ticket_id)
+                        if not match_type:
+                            continue
+
+                        # ดึงข้อมูลผู้ใช้
+                        user_ref = db.collection("users").document(user_id)
+                        user_doc = user_ref.get()
+                        phone = ""
+                        name = ""
+                        shop = ""
+                        if user_doc.exists:
+                            user_data = user_doc.to_dict()
+                            phone = user_data.get("phone", "")
+                            name = user_data.get("user_name", "")
+                            shop = user_data.get("shop_name", "")
+
+                        # append ผลลัพธ์
+                        results.append({
+                            "user_id": user_id,
+                            "ticket_id": ticket_id,
+                            "image_url": ticket_data.get("image_url"),
+                            "number6": number6_str,
+                            "quantity": ticket_data.get("quantity"),
+                            "priceuse": ticket_data.get("priceuse"),
+                            "phone": phone,
+                            "name": name,
+                            "shop": shop,
+                            "seller": saller,
+                            "match_type": match_type
+                        })
+                        found_tickets.add(ticket_id)
 
                 if len(results) >= max_results:
                     break
@@ -489,7 +509,7 @@ def search_number_priority():
                         if not active:
                             continue
 
-                        ticket_id = list(doc_data.keys())[0]  # อาจปรับตาม structure จริง
+                        ticket_id = list(doc_data.keys())[0]
                         ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
                         if not ticket_doc.exists:
@@ -498,18 +518,35 @@ def search_number_priority():
                         ticket_data = ticket_doc.to_dict() or {}
                         number6_str = str(ticket_data.get("number6", "")).zfill(6)
                         match_type = get_match_type(number, number6_str, search_len)
-                        if match_type:
-                            results.append({
-                                "user_id": user_id,
-                                "ticket_id": ticket_id,
-                                "image_url": ticket_data.get("image_url"),
-                                "number6": number6_str,
-                                "quantity": ticket_data.get("quantity"),
-                                "seller": ticket_data.get("referrer_id", ""),
-                                
-                                "match_type": match_type
-                            })
-                            found_tickets.add(user_id)
+                        if not match_type:
+                            continue
+
+                        # ดึงข้อมูลผู้ใช้
+                        user_ref = db.collection("users").document(user_id)
+                        user_doc = user_ref.get()
+                        phone = ""
+                        name = ""
+                        shop = ""
+                        if user_doc.exists:
+                            user_data = user_doc.to_dict()
+                            phone = user_data.get("phone", "")
+                            name = user_data.get("user_name", "")
+                            shop = user_data.get("shop_name", "")
+
+                        results.append({
+                            "user_id": user_id,
+                            "ticket_id": ticket_id,
+                            "image_url": ticket_data.get("image_url"),
+                            "number6": number6_str,
+                            "quantity": ticket_data.get("quantity"),
+                            "priceuse": ticket_data.get("priceuse"),
+                            "phone": phone,
+                            "name": name,
+                            "shop": shop,
+                            "seller": ticket_data.get("referrer_id", ""),
+                            "match_type": match_type
+                        })
+                        found_tickets.add(ticket_id)
 
                     if len(results) >= max_results:
                         break
@@ -520,6 +557,7 @@ def search_number_priority():
         import traceback
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
 
 
 # 🔧 Helper functions
