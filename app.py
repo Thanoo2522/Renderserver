@@ -472,8 +472,8 @@ def search_number_priority():
 
                         # append ผลลัพธ์
                         results.append({
-                            "user_id": user_id,
-                            "ticket_id": ticket_id,
+                            # "user_id": user_id,
+                           # "ticket_id": ticket_id,
                             "image_url": ticket_data.get("image_url"),
                             "number6": number6_str,
                             "quantity": ticket_data.get("quantity"),
@@ -481,7 +481,7 @@ def search_number_priority():
                             "phone": phone,
                             "name": name,
                             "shop": shop,
-                            "seller": saller,
+                            #"seller": ticket_data.get("referrer_id", ""),
                             "match_type": match_type
                         })
                         found_tickets.add(ticket_id)
@@ -534,8 +534,8 @@ def search_number_priority():
                             shop = user_data.get("shop_name", "")
 
                         results.append({
-                            "user_id": user_id,
-                            "ticket_id": ticket_id,
+                           # "user_id": user_id,
+                           # "ticket_id": ticket_id,
                             "image_url": ticket_data.get("image_url"),
                             "number6": number6_str,
                             "quantity": ticket_data.get("quantity"),
@@ -543,7 +543,7 @@ def search_number_priority():
                             "phone": phone,
                             "name": name,
                             "shop": shop,
-                            "seller": ticket_data.get("referrer_id", ""),
+                            #"seller": ticket_data.get("referrer_id", ""),
                             "match_type": match_type
                         })
                         found_tickets.add(ticket_id)
