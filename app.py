@@ -404,6 +404,32 @@ def save_image():
 
 
 
+
+# 🔧 Helper functions
+# -------------------
+def get_match_type(search, number6, length):
+    if length == 2 and search == number6[-2:]:
+        return "2 ตัวล่าง"
+    elif length == 3 and search == number6[:3]:
+        return "3 ตัวบน"
+    elif length == 3 and search == number6[-3:]:
+        return "3 ตัวล่าง"
+    elif length == 6 and search == number6:
+        return "6 ตัวตรง"
+    return None
+
+
+def get_index_name(number):
+    n = int(number)
+    if len(number) == 2:
+        return f"{n}_ten"
+    elif len(number) == 3:
+        return f"{n}_hundreds"
+    elif len(number) == 6:
+        return f"{n}_hundred_thousands"
+    else:
+        return "unknown"
+
 # ------------------- Search Number -------------------
 @app.route("/search_number_saller", methods=["POST"])
 def search_number_saller():
@@ -486,6 +512,8 @@ def search_number_index():
         max_results = 100
 
         if not number:
+
+            
             return jsonify({"error": "ต้องใส่เลข"}), 400
 
         search_len = len(number)
@@ -550,32 +578,6 @@ def search_number_index():
         import traceback
         print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-
-
-# 🔧 Helper functions
-# -------------------
-def get_match_type(search, number6, length):
-    if length == 2 and search == number6[-2:]:
-        return "2 ตัวล่าง"
-    elif length == 3 and search == number6[:3]:
-        return "3 ตัวบน"
-    elif length == 3 and search == number6[-3:]:
-        return "3 ตัวล่าง"
-    elif length == 6 and search == number6:
-        return "6 ตัวตรง"
-    return None
-
-
-def get_index_name(number):
-    n = int(number)
-    if len(number) == 2:
-        return f"{n}_ten"
-    elif len(number) == 3:
-        return f"{n}_hundreds"
-    elif len(number) == 6:
-        return f"{n}_hundred_thousands"
-    else:
-        return "unknown"
 
 
 #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
