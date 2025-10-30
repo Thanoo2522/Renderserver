@@ -405,109 +405,150 @@ def save_image():
 
 
 # ------------------- Search Number -------------------
-@app.route("/search_number_priority", methods=["POST"])
-def search_number_priority():
+@app.route("/search_number_saller", methods=["POST"])
+def search_number_saller():
     try:
         data = request.json
         number = data.get("number")
-        saller = data.get("saller")  # เบอร์โทรผู้ขาย / referrer_id
+        saller = data.get("saller")
         max_results = 100
 
-        if not number:
-            return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
-
-        search_len = len(number)
-        if search_len not in [2, 3, 6]:
-            return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
+        if not number or not saller:
+            return jsonify({"error": "ต้องใส่เลขและรหัสแผงขาย"}), 400
 
         results = []
         found_tickets = set()
+        search_len = len(number)
 
-        def search_in_index(index_name, label=""):
-            """ค้นข้อมูลใน index ที่กำหนด"""
-            idx_ref = db.collection("search_index").document(index_name)
-            print(f"🔍 ค้นใน {label} index: {index_name}")
+        idx_ref = db.collection("search_index").document(saller)
+        print(f"🔍 ค้นในแผงขาย: {saller}")
 
-            for subcol in idx_ref.collections():
-                for num_doc in subcol.stream():
-                    if len(results) >= max_results:
-                        break
-
-                    doc_data = num_doc.to_dict() or {}
-                    for ticket_id, info in doc_data.items():
-                        if len(results) >= max_results:
-                            break
-                        if ticket_id in found_tickets:
-                            continue
-                        if not isinstance(info, dict):
-                            continue
-
-                        user_id = info.get("user_id")
-                        if not user_id:
-                            continue
-
-                        # ดึงข้อมูลสลาก
-                        ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
-                        ticket_doc = ticket_ref.get()
-                        if not ticket_doc.exists:
-                            continue
-
-                        ticket_data = ticket_doc.to_dict() or {}
-                        number6_str = str(ticket_data.get("number6", "")).zfill(6)
-
-                        match_type = get_match_type(number, number6_str, search_len)
-                        if not match_type:
-                            continue
-
-                        # ดึงข้อมูลผู้ใช้
-                        user_ref = db.collection("users").document(user_id)
-                        user_doc = user_ref.get()
-                        phone = name = shop = ""
-                        if user_doc.exists:
-                            user_data = user_doc.to_dict()
-                            phone = user_data.get("phone", "")
-                            name = user_data.get("user_name", "")
-                            shop = user_data.get("shop_name", "")
-
-                        results.append({
-                            "image_url": ticket_data.get("image_url"),
-                            "number6": number6_str,
-                            "quantity": ticket_data.get("quantity"),
-                            "priceuse": ticket_data.get("priceuse"),
-                            "phone": phone,
-                            "name": name,
-                            "shop": shop,
-                            "match_type": match_type
-                        })
-                        found_tickets.add(ticket_id)
-
+        for subcol in idx_ref.collections():
+            for num_doc in subcol.stream():
                 if len(results) >= max_results:
                     break
+                doc_data = num_doc.to_dict() or {}
+                for ticket_id, info in doc_data.items():
+                    if ticket_id in found_tickets or not isinstance(info, dict):
+                        continue
+                    user_id = info.get("user_id")
+                    if not user_id:
+                        continue
 
-            print(f"✅ ค้นจาก {label} index: '{index_name}' พบทั้งหมด {len(results)} รายการแล้ว")
+                    # อ่านข้อมูลสลาก
+                    ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+                    ticket_doc = ticket_ref.get()
+                    if not ticket_doc.exists:
+                        continue
 
-        # ---------------------------------------------------
-        # 1️⃣ ค้นจากแผงผู้ขาย (saller)
-        # ---------------------------------------------------
-        if saller:
-            search_in_index(saller, label="แผงขาย")
+                    ticket_data = ticket_doc.to_dict()
+                    number6_str = str(ticket_data.get("number6", "")).zfill(6)
+                    match_type = get_match_type(number, number6_str, search_len)
+                    if not match_type:
+                        continue
 
-        # ---------------------------------------------------
-        # 2️⃣ ถ้ายังไม่ครบ 100 → ค้นจาก index หลัก
-        # ---------------------------------------------------
-        if len(results) < max_results:
-            index_name = get_index_name(number)
-            search_in_index(index_name, label="index หลัก")
+                    # ข้อมูลผู้ใช้
+                    user_ref = db.collection("users").document(user_id)
+                    user_doc = user_ref.get()
+                    name = shop = phone = ""
+                    if user_doc.exists:
+                        user_data = user_doc.to_dict()
+                        name = user_data.get("user_name", "")
+                        shop = user_data.get("shop_name", "")
+                        phone = user_data.get("phone", "")
 
-        # ---------------------------------------------------
-        # ✅ ส่งผลลัพธ์
-        # ---------------------------------------------------
-        print(f"📦 ส่งกลับทั้งหมด {len(results)} รายการ")
+                    results.append({
+                        "source": "saller",
+                        "image_url": ticket_data.get("image_url"),
+                        "number6": number6_str,
+                        "quantity": ticket_data.get("quantity"),
+                        "priceuse": ticket_data.get("priceuse"),
+                        "phone": phone,
+                        "name": name,
+                        "shop": shop,
+                        "match_type": match_type
+                    })
+                    found_tickets.add(ticket_id)
+
+        print(f"✅ พบใน saller {len(results)} รายการ")
         return jsonify({"results": results[:max_results]}), 200
 
     except Exception as e:
         import traceback
-        print("❌ SERVER ERROR:", traceback.format_exc())
+        print(traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
+#---------------------------------------------------------------------
+@app.route("/search_number_index", methods=["POST"])
+def search_number_index():
+    try:
+        data = request.json
+        number = data.get("number")
+        max_results = 100
+
+        if not number:
+            return jsonify({"error": "ต้องใส่เลข"}), 400
+
+        search_len = len(number)
+        index_name = get_index_name(number)
+        results = []
+        found_tickets = set()
+
+        idx_ref = db.collection("search_index").document(index_name)
+        print(f"🔎 ค้นใน index หลัก: {index_name}")
+
+        for subcol in idx_ref.collections():
+            for num_doc in subcol.stream():
+                if len(results) >= max_results:
+                    break
+
+                doc_data = num_doc.to_dict() or {}
+                for ticket_id, info in doc_data.items():
+                    if ticket_id in found_tickets or not isinstance(info, dict):
+                        continue
+
+                    user_id = info.get("user_id")
+                    if not user_id:
+                        continue
+
+                    ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+                    ticket_doc = ticket_ref.get()
+                    if not ticket_doc.exists:
+                        continue
+
+                    ticket_data = ticket_doc.to_dict()
+                    number6_str = str(ticket_data.get("number6", "")).zfill(6)
+                    match_type = get_match_type(number, number6_str, search_len)
+                    if not match_type:
+                        continue
+
+                    user_ref = db.collection("users").document(user_id)
+                    user_doc = user_ref.get()
+                    name = shop = phone = ""
+                    if user_doc.exists:
+                        user_data = user_doc.to_dict()
+                        name = user_data.get("user_name", "")
+                        shop = user_data.get("shop_name", "")
+                        phone = user_data.get("phone", "")
+
+                    results.append({
+                        "source": "index",
+                        "image_url": ticket_data.get("image_url"),
+                        "number6": number6_str,
+                        "quantity": ticket_data.get("quantity"),
+                        "priceuse": ticket_data.get("priceuse"),
+                        "phone": phone,
+                        "name": name,
+                        "shop": shop,
+                        "match_type": match_type
+                    })
+                    found_tickets.add(ticket_id)
+
+        print(f"✅ พบใน index หลัก {len(results)} รายการ")
+        return jsonify({"results": results[:max_results]}), 200
+
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 
