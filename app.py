@@ -406,7 +406,7 @@ def save_image():
 
 # ------------------- Search Number -------------------
 @app.route("/search_number_priority", methods=["POST"])
-def search_number():
+def search_number_priority():
     try:
         data = request.json
         number = data.get("number")
