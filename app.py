@@ -512,81 +512,65 @@ def search_saller():
         import traceback
         print("❌ SERVER ERROR (saller):", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-
+#--------------------
 @app.route("/search_index", methods=["POST"])
 def search_index():
     try:
         data = request.json
         number = data.get("number")
-        max_results = 100
 
         if not number:
-            return jsonify({"error": "กรุณาใส่เลข"}), 400
+            return jsonify({"error": "ต้องใส่เลขที่ต้องการค้นหา"}), 400
 
-        search_len = len(number)
-        if search_len not in [2,3,6]:
-            return jsonify({"error": "เลขต้องเป็น 2,3 หรือ 6 หลัก"}), 400
-
-        results = []
-        found_tickets = set()
-
-        index_name = get_index_name(number)
+        index_name = f"{number[-3]}_hundreds"
         idx_ref = db.collection("search_index").document(index_name)
         print(f"🔎 ค้นใน index หลัก: {index_name}")
 
+        results = []
+
+        # 1️⃣ วน subcollection เช่น 730942
         for subcol in idx_ref.collections():
-            for num_doc in subcol.stream():
-                if len(results) >= max_results:
-                    break
+            print(f"📁 พบ subcollection: {subcol.id}")
+            # 2️⃣ วนในแต่ละ user_id เช่น e46338c90642606d
+            for user_doc in subcol.stream():
+                print(f"👤 พบ user_id: {user_doc.id}")
+                user_ref = subcol.document(user_doc.id)
+                # 3️⃣ วนในแต่ละ ticket_id
+                for ticket_doc in user_ref.collections():
+                    for t_doc in ticket_doc.stream():
+                        t_data = t_doc.to_dict()
+                        print(f"🎟️ ticket {t_doc.id} = {t_data}")
 
-                doc_data = num_doc.to_dict() or {}
-                for ticket_id, info in doc_data.items():
-                    if ticket_id in found_tickets or not isinstance(info, dict):
-                        continue
+                        user_id = t_data.get("user_id")
+                        if user_id:
+                            user_ref = db.collection("users").document(user_id)
+                            user_info = user_ref.get().to_dict() if user_ref.get().exists else {}
+                            if user_info:
+                                result = {
+                                    "image_url": user_info.get("image_url"),
+                                    "name": user_info.get("name"),
+                                    "number6": subcol.id,
+                                    "shop": user_info.get("shop"),
+                                    "phone": user_info.get("phone"),
+                                    "source": "index"
+                                }
+                                results.append(result)
 
-                    user_id = info.get("user_id")
-                    if not user_id:
-                        continue
+        # ✅ ลบซ้ำด้วย ticket_id หรือ image_url
+        unique = []
+        seen = set()
+        for r in results:
+            key = (r.get("image_url"), r.get("number6"))
+            if key not in seen:
+                seen.add(key)
+                unique.append(r)
 
-                    ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
-                    ticket_doc = ticket_ref.get()
-                    if not ticket_doc.exists:
-                        continue
-                    ticket_data = ticket_doc.to_dict() or {}
-
-                    number6_str = str(ticket_data.get("number6", "")).zfill(6)
-                    match_type = get_match_type(number, number6_str, search_len)
-                    if not match_type:
-                        continue
-
-                    user_ref = db.collection("users").document(user_id)
-                    user_doc = user_ref.get()
-                    phone = name = shop = ""
-                    if user_doc.exists:
-                        user_data = user_doc.to_dict()
-                        phone = user_data.get("phone","")
-                        name = user_data.get("user_name","")
-                        shop = user_data.get("shop_name","")
-
-                    results.append({
-                        "image_url": ticket_data.get("image_url"),
-                        "number6": number6_str,
-                        "quantity": ticket_data.get("quantity"),
-                        "priceuse": ticket_data.get("priceuse"),
-                        "phone": phone,
-                        "name": name,
-                        "shop": shop,
-                        "match_type": match_type,
-                        "source": "index"
-                    })
-                    found_tickets.add(ticket_id)
-
-        return jsonify({"results": results[:max_results]}), 200
+        return jsonify({"results": unique})
 
     except Exception as e:
-        import traceback
-        print("❌ SERVER ERROR (index):", traceback.format_exc())
+        print("❌ ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
+
 
 #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
 @app.route("/get_tickets_by_user", methods=["POST"])
