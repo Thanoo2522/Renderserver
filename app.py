@@ -439,7 +439,6 @@ def get_index_name(number):
         return "unknown"
 
 
-
 # ------------------- Search Number -------------------
 @app.route("/search_saller", methods=["POST"])
 def search_saller():
