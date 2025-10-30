@@ -445,7 +445,7 @@ def search_number_priority():
     try:
         data = request.json
         number = data.get("number")
-        saller = data.get("saller")  # เบอร์โทรผู้ขาย / referrer_id
+        saller = data.get("saller")  # เบอร์โทรของผู้ขาย / referrer_id
         max_results = 100
 
         if not number:
@@ -459,9 +459,9 @@ def search_number_priority():
         found_tickets = set()
         searched_saller = False
 
-        # -----------------------------
+        # ---------------------------------------------------
         # 1️⃣ ค้นจากสายผู้แนะนำ (saller)
-        # -----------------------------
+        # ---------------------------------------------------
         if saller:
             searched_saller = True
             saller_ref = db.collection("search_index").document(saller)
@@ -473,29 +473,22 @@ def search_number_priority():
 
                     doc_data = num_doc.to_dict() or {}
                     for ticket_id, info in doc_data.items():
-                        if ticket_id in found_tickets:
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (ซ้ำใน saller)")
-                            continue
                         if not isinstance(info, dict):
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (info ไม่ใช่ dict)")
                             continue
 
                         user_id = info.get("user_id")
                         if not user_id:
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (ไม่มี user_id)")
                             continue
 
                         ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
                         if not ticket_doc.exists:
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (ticket_doc ไม่พบ)")
                             continue
                         ticket_data = ticket_doc.to_dict() or {}
 
                         number6_str = str(ticket_data.get("number6", "")).zfill(6)
                         match_type = get_match_type(number, number6_str, search_len)
                         if not match_type:
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (match_type เป็น None)")
                             continue
 
                         user_ref = db.collection("users").document(user_id)
@@ -517,91 +510,87 @@ def search_number_priority():
                             "phone": phone,
                             "name": name,
                             "shop": shop,
-                            "match_type": match_type
+                            "match_type": match_type,
+                            "source": "saller"  # เพิ่มแหล่งที่มา
                         })
                         found_tickets.add(ticket_id)
 
                 if len(results) >= max_results:
                     break
 
-        # -----------------------------
-        # 2️⃣ ค้น index หลัก (ทุก subcollection)
-        # -----------------------------
-        if not searched_saller or len(results) < max_results:
-            index_name = get_index_name(number)
-            idx_ref = db.collection("search_index").document(index_name)
-            print(f"🔎 ค้นใน index หลัก: {index_name}")
+        # ---------------------------------------------------
+        # 2️⃣ ค้น index หลัก (loop ทุก subcollection)
+        # ---------------------------------------------------
+        index_name = get_index_name(number)  # เช่น "9_hundreds"
+        idx_ref = db.collection("search_index").document(index_name)
+        print(f"🔎 ค้นใน index หลัก: {index_name}")
 
-            for subcol in idx_ref.collections():  # loop ทุก subcollection (845942, 730942, ...)
-                print(f"🔹 ตรวจ subcollection: {subcol.id}")
-                for num_doc in subcol.stream():
-                    if len(results) >= max_results:
-                        break
-
-                    doc_data = num_doc.to_dict() or {}
-                    for ticket_id, info in doc_data.items():
-                        if ticket_id in found_tickets:
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (ซ้ำกับ saller)")
-                            continue
-                        if not isinstance(info, dict):
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (info ไม่ใช่ dict)")
-                            continue
-
-                        user_id = info.get("user_id")
-                        if not user_id:
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (ไม่มี user_id)")
-                            continue
-
-                        ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
-                        ticket_doc = ticket_ref.get()
-                        if not ticket_doc.exists:
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (ticket_doc ไม่พบ)")
-                            continue
-                        ticket_data = ticket_doc.to_dict() or {}
-
-                        number6_str = str(ticket_data.get("number6", "")).zfill(6)
-                        match_type = get_match_type(number, number6_str, search_len)
-                        if not match_type:
-                            print(f"⚠️ ข้าม ticket_id {ticket_id} (match_type เป็น None)")
-                            continue
-
-                        user_ref = db.collection("users").document(user_id)
-                        user_doc = user_ref.get()
-                        phone = ""
-                        name = ""
-                        shop = ""
-                        if user_doc.exists:
-                            user_data = user_doc.to_dict()
-                            phone = user_data.get("phone", "")
-                            name = user_data.get("user_name", "")
-                            shop = user_data.get("shop_name", "")
-
-                        results.append({
-                            "image_url": ticket_data.get("image_url"),
-                            "number6": number6_str,
-                            "quantity": ticket_data.get("quantity"),
-                            "priceuse": ticket_data.get("priceuse"),
-                            "phone": phone,
-                            "name": name,
-                            "shop": shop,
-                            "match_type": match_type
-                        })
-                        found_tickets.add(ticket_id)
-
+        for subcol in idx_ref.collections():  # loop ทุก subcollection
+            for num_doc in subcol.stream():
                 if len(results) >= max_results:
                     break
 
-        # -----------------------------
-        # ส่งผลลัพธ์
-        # -----------------------------
+                doc_data = num_doc.to_dict() or {}
+                for ticket_id, info in doc_data.items():
+                    if not isinstance(info, dict):
+                        continue
+
+                    user_id = info.get("user_id")
+                    if not user_id:
+                        continue
+
+                    ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+                    ticket_doc = ticket_ref.get()
+                    if not ticket_doc.exists:
+                        continue
+                    ticket_data = ticket_doc.to_dict() or {}
+
+                    number6_str = str(ticket_data.get("number6", "")).zfill(6)
+                    match_type = get_match_type(number, number6_str, search_len)
+                    if not match_type:
+                        continue
+
+                    user_ref = db.collection("users").document(user_id)
+                    user_doc = user_ref.get()
+                    phone = ""
+                    name = ""
+                    shop = ""
+                    if user_doc.exists:
+                        user_data = user_doc.to_dict()
+                        phone = user_data.get("phone", "")
+                        name = user_data.get("user_name", "")
+                        shop = user_data.get("shop_name", "")
+
+                    # ถ้า ticket_id ซ้ำกับ saller ให้เพิ่ม flag แยก
+                    source_flag = "index"
+                    if ticket_id in found_tickets:
+                        source_flag = "index_duplicate"
+
+                    results.append({
+                        "image_url": ticket_data.get("image_url"),
+                        "number6": number6_str,
+                        "quantity": ticket_data.get("quantity"),
+                        "priceuse": ticket_data.get("priceuse"),
+                        "phone": phone,
+                        "name": name,
+                        "shop": shop,
+                        "match_type": match_type,
+                        "source": source_flag
+                    })
+                    found_tickets.add(ticket_id)  # เพื่อกันซ้ำภายใน index หลัก
+
+            if len(results) >= max_results:
+                break
+
+        # ---------------------------------------------------
+        # ✅ ส่งผลลัพธ์
+        # ---------------------------------------------------
         return jsonify({"results": results[:max_results]}), 200
 
     except Exception as e:
         import traceback
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-
-
 
 #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
 @app.route("/get_tickets_by_user", methods=["POST"])
