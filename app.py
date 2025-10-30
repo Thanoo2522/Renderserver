@@ -268,18 +268,29 @@ def get_hundred_thousands_digit(number: int) -> int:
 
 # ------------------- Update Search Index -------------------
 def update_search_index(index_type, num, user_id, ticket_id):
+    """
+    บันทึก search_index สำหรับ index หลัก
+    Firestore structure:
+    search_index / {index_type} / {num} / {user_id} : {ticket_id: {"user_id": user_id}}
+    """
     if not num:
         print("❌ update_search_index: num ว่าง")
         return
     try:
         db.collection("search_index").document(index_type).collection(str(num)).document(user_id).set({
-            ticket_id: True
+            ticket_id: {"user_id": user_id}   # ✅ แก้ตรงนี้
         })
         print(f"✅ บันทึก {index_type}/{num}/{user_id} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
+
 # ------------------- Update Search   saller -------------------
 def update_search_saller(index_type, num, saller, ticket_id, user_id):
+    """
+    บันทึก search_index สำหรับ saller/referrer
+    Firestore structure:
+    search_index / {saller} / {index_type} / {num} / {user_id} : {ticket_id: {"user_id": user_id}}
+    """
     if not num or not saller:
         print("❌ update_search_saller: ข้อมูลไม่ครบ")
         return
