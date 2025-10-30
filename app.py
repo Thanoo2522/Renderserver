@@ -460,7 +460,7 @@ def search_number_priority():
         searched_saller = False
 
         # ---------------------------------------------------
-        # 1️⃣ ค้นจากสายผู้แนะนำ (saller / เบอร์โทรผู้ขาย)
+        # 1️⃣ ค้นจากสายผู้แนะนำ (saller)
         # ---------------------------------------------------
         if saller:
             searched_saller = True
@@ -473,16 +473,13 @@ def search_number_priority():
 
                     doc_data = num_doc.to_dict() or {}
                     for ticket_id, info in doc_data.items():
-                        if ticket_id in found_tickets:
-                            continue
-                        if not isinstance(info, dict):
+                        if ticket_id in found_tickets or not isinstance(info, dict):
                             continue
 
                         user_id = info.get("user_id")
                         if not user_id:
                             continue
 
-                        # ดึงข้อมูล ticket
                         ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
                         if not ticket_doc.exists:
@@ -494,7 +491,6 @@ def search_number_priority():
                         if not match_type:
                             continue
 
-                        # ดึงข้อมูลผู้ใช้
                         user_ref = db.collection("users").document(user_id)
                         user_doc = user_ref.get()
                         phone = ""
@@ -506,7 +502,6 @@ def search_number_priority():
                             name = user_data.get("user_name", "")
                             shop = user_data.get("shop_name", "")
 
-                        # บันทึกผลลัพธ์
                         results.append({
                             "image_url": ticket_data.get("image_url"),
                             "number6": number6_str,
@@ -523,30 +518,27 @@ def search_number_priority():
                     break
 
         # ---------------------------------------------------
-        # 2️⃣ ถ้าไม่มี saller หรือยังไม่ถึง 100 → ค้น index หลัก
+        # 2️⃣ ค้น index หลัก (loop ทุก subcollection)
         # ---------------------------------------------------
         if not searched_saller or len(results) < max_results:
-            index_name = get_index_name(number)
+            index_name = get_index_name(number)  # เช่น "9_hundreds"
             idx_ref = db.collection("search_index").document(index_name)
             print(f"🔎 ค้นใน index หลัก: {index_name}")
 
-            for subcol in idx_ref.collections():
+            for subcol in idx_ref.collections():  # loop ทุก subcollection (845942, 730942, …)
                 for num_doc in subcol.stream():
                     if len(results) >= max_results:
                         break
 
                     doc_data = num_doc.to_dict() or {}
                     for ticket_id, info in doc_data.items():
-                        if ticket_id in found_tickets:
-                            continue
-                        if not isinstance(info, dict):
+                        if ticket_id in found_tickets or not isinstance(info, dict):
                             continue
 
                         user_id = info.get("user_id")
                         if not user_id:
                             continue
 
-                        # ดึงข้อมูล ticket
                         ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
                         ticket_doc = ticket_ref.get()
                         if not ticket_doc.exists:
@@ -558,7 +550,6 @@ def search_number_priority():
                         if not match_type:
                             continue
 
-                        # ดึงข้อมูลผู้ใช้
                         user_ref = db.collection("users").document(user_id)
                         user_doc = user_ref.get()
                         phone = ""
@@ -570,7 +561,6 @@ def search_number_priority():
                             name = user_data.get("user_name", "")
                             shop = user_data.get("shop_name", "")
 
-                        # บันทึกผลลัพธ์
                         results.append({
                             "image_url": ticket_data.get("image_url"),
                             "number6": number6_str,
@@ -596,9 +586,6 @@ def search_number_priority():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-
-# 🔧 Helper functions
-# -------------------
 
 #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
 @app.route("/get_tickets_by_user", methods=["POST"])
