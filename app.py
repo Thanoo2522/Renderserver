@@ -500,8 +500,6 @@ def search_saller():
 
                     if match_type:
                         results.append({
-                            "user_id": user_id,
-                            "ticket_id": ticket_id,
                             "image_url": ticket_data.get("image_url"),
                             "number6": number6_str,
                             "quantity": ticket_data.get("quantity"),
@@ -509,8 +507,7 @@ def search_saller():
                             "phone": user_info.get("phone", ""),
                             "name": user_info.get("user_name", ""),
                             "shop": user_info.get("shop_name", ""),
-                            "match_type": match_type,
-                            "source": "saller"
+                            "match_type": match_type
                         })
                         found_tickets.add(ticket_id)
 
@@ -573,8 +570,6 @@ def search_index():
 
                     if match_type:
                         results.append({
-                            "user_id": user_id,
-                            "ticket_id": ticket_id,
                             "image_url": ticket_data.get("image_url"),
                             "number6": number6_str,
                             "quantity": ticket_data.get("quantity"),
@@ -582,8 +577,7 @@ def search_index():
                             "phone": user_info.get("phone", ""),
                             "name": user_info.get("user_name", ""),
                             "shop": user_info.get("shop_name", ""),
-                            "match_type": match_type,
-                            "source": "index"
+                            "match_type": match_type
                         })
                         found_tickets.add(ticket_id)
 
