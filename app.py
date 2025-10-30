@@ -279,7 +279,11 @@ def update_search_index(index_type, num, user_id, ticket_id):
               .document(user_id)                   # เช่น "e46338c90642606d"
               .collection("tickets")               # 🔹 collection รวมตั๋ว
               .document(ticket_id)                 # 🔹 document เป็น ticket_id
-              .set({"user_id": user_id})
+              #.set({"user_id": user_id})
+              .set({
+            # ticket_id: {"user_id": user_id}
+            ticket_id: True
+        })
         )
         print(f"✅ บันทึก {index_type}/{num}/{user_id}/{ticket_id} สำเร็จ")
     except Exception as e:
@@ -297,7 +301,8 @@ def update_search_saller(index_type, num, saller, ticket_id, user_id):
         return
     try:
         db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
-            ticket_id: {"user_id": user_id}
+            # ticket_id: {"user_id": user_id}
+            ticket_id: True
         })
         print(f"✅ บันทึก {index_type}/{num}/{saller} สำเร็จ")
     except Exception as e:
