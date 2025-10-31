@@ -429,7 +429,116 @@ def get_index_name(number):
         return f"{n}_hundred_thousands"
     else:
         return "unknown"
+# ------------------- Search saller -------------------
+@app.route("/search_saller", methods=["POST"])
+def search_saller():
+    try:
+        data = request.json
+        number = data.get("number")
+        saller = data.get("saller")  # ใช้เบอร์โทรของผู้ขาย / referrer_id
 
+        if not number or not saller:
+            return jsonify({"error": "ต้องใส่เลขและ saller"}), 400
+
+        search_len = len(number)
+        index_types = []
+
+        if search_len == 2:
+            index_types = ["2_top", "2_bottom"]
+        elif search_len == 3:
+            index_types = ["3_top", "3_bottom"]
+        elif search_len == 6:
+            index_types = ["6_exact"]
+        else:
+            return jsonify({"error": "เลขต้องเป็น 2, 3 หรือ 6 หลัก"}), 400
+
+        results = []
+        found_tickets = set()
+
+        # 🔹 ใช้หลักเดียวกันกับ search_number
+        for digit_type, func in [
+            ("ten", get_tens_digit),
+            ("hundreds", get_hundreds_digit),
+            ("hundred_thousands", get_hundred_thousands_digit)
+        ]:
+            digit_value = func(int(number))
+            index_name = f"{digit_value}_{digit_type}"
+
+            # ✅ จุดสำคัญ — แทนที่ index_name เป็นโครงสร้างของ saller
+            idx_col_ref = db.collection("search_index").document(saller).collection(index_name)
+            subcollections = list(idx_col_ref.list_documents())  # 🔸 ดึง subcollection ของ num
+
+            for subcol_doc in subcollections:
+                num = subcol_doc.id  # เช่น "123456"
+                num_ref = idx_col_ref.document(num)
+                users = list(num_ref.collections())
+
+                for user_col in users:
+                    docs = list(user_col.stream())
+
+                    for doc in docs:
+                        user_id = doc.id
+                        tickets = doc.to_dict()
+
+                        for ticket_id in tickets.keys():
+                            if ticket_id in found_tickets:
+                                continue
+
+                            ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+                            ticket_doc = ticket_ref.get()
+
+                            if not ticket_doc.exists:
+                                continue
+
+                            # 🔸 ดึงข้อมูลผู้ใช้
+                            user_ref = db.collection("users").document(user_id)
+                            user_doc = user_ref.get()
+                            phone = ""
+                            name = ""
+                            shop = ""
+
+                            if user_doc.exists:
+                                user_data = user_doc.to_dict()
+                                phone = user_data.get("phone", "")
+                                name = user_data.get("user_name", "")
+                                shop = user_data.get("shop_name", "")
+
+                            ticket_data = ticket_doc.to_dict()
+                            number6_str = str(ticket_data.get("number6", "")).zfill(6)
+                            match_type = None
+
+                            if search_len == 2 and number == number6_str[-2:]:
+                                match_type = "2 ตัวล่าง"
+
+                            if search_len == 3 and number == number6_str[:3]:
+                                match_type = "3 ตัวบน"
+
+                            if search_len == 3 and number == number6_str[-3:]:
+                                match_type = "3 ตัวล่าง"
+
+                            if search_len == 6 and number == number6_str:
+                                match_type = "6 ตัวตรง"
+
+                            if match_type:
+                                results.append({
+                                    "user_id": user_id,
+                                    "ticket_id": ticket_id,
+                                    "image_url": ticket_data.get("image_url"),
+                                    "number6": number6_str,
+                                    "quantity": ticket_data.get("quantity"),
+                                    "priceuse": ticket_data.get("priceuse"),
+                                    "phone": phone,
+                                    "name": name,
+                                    "shop": shop,
+                                    "match_type": match_type
+                                })
+                                found_tickets.add(ticket_id)
+
+        return jsonify({"results": results}), 200
+
+    except Exception as e:
+        print("❌ SERVER ERROR:", traceback.format_exc())
+        return jsonify({"error": str(e)}), 500
 
 # ------------------- Search Number -------------------
 @app.route("/search_number", methods=["POST"])
