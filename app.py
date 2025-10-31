@@ -445,89 +445,6 @@ def get_index_name(number):
 
 
 # ------------------- Search Number -------------------
-@app.route("/search_saller", methods=["POST"])
-def search_saller():
-    try:
-        data = request.json
-        number = data.get("number")
-        saller = data.get("saller")  # เบอร์โทรผู้แนะนำ / saller
-        if not number:
-            return jsonify({"error": "ต้องใส่ number"}), 400
-
-        search_len = len(number)
-        results = []
-        found_tickets = set()  # ป้องกันไม่ให้ซ้ำ
-
-        # 🔹 loop หลักเลขเพื่อสร้าง index_name
-        for digit_type, func in [
-            ("ten", get_tens_digit),
-            ("hundreds", get_hundreds_digit),
-            ("hundred_thousands", get_hundred_thousands_digit)
-        ]:
-            digit_value = func(int(number))
-            index_name = f"{digit_value}_{digit_type}"
-
-            # เข้าถึง subcollection: search_index / saller / index_name
-            index_doc_ref = db.collection("search_index").document(saller).collection(index_name)
-            num_subcollections = list(index_doc_ref.list_documents())
-
-            for num_doc in num_subcollections:
-                num_value = num_doc.id  # เช่น "42"
-                # 🔹 ภายใน num_doc มี subcollection ของ ticket_id
-                ticket_subcollections = list(num_doc.collections())
-
-                for ticket_subcol in ticket_subcollections:
-                    for ticket_doc in ticket_subcol.stream():
-                        ticket_id = ticket_doc.id
-                        ticket_data_dict = ticket_doc.to_dict()
-                        user_id = ticket_data_dict.get("user_id")
-
-                        if not user_id or ticket_id in found_tickets:
-                            continue
-
-                        # 🔹 ดึงข้อมูล ticket จาก lotterypost
-                        ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
-                        ticket_doc_data = ticket_ref.get()
-                        if not ticket_doc_data.exists:
-                            continue
-
-                        ticket_data = ticket_doc_data.to_dict()
-
-                        # 🔹 ดึงข้อมูลผู้ใช้
-                        user_doc = db.collection("users").document(user_id).get()
-                        user_info = user_doc.to_dict() if user_doc.exists else {}
-
-                        number6_str = str(ticket_data.get("number6", "")).zfill(6)
-                        match_type = None
-
-                        # ตรวจประเภทการตรงเลข
-                        if search_len == 2 and number == number6_str[-2:]:
-                            match_type = "2 ตัวล่าง"
-                        elif search_len == 3 and number == number6_str[:3]:
-                            match_type = "3 ตัวบน"
-                        elif search_len == 3 and number == number6_str[-3:]:
-                            match_type = "3 ตัวล่าง"
-                        elif search_len == 6 and number == number6_str:
-                            match_type = "6 ตัวตรง"
-
-                        if match_type:
-                            results.append({
-                                "image_url": ticket_data.get("image_url"),
-                                "number6": number6_str,
-                                "quantity": ticket_data.get("quantity"),
-                                "priceuse": ticket_data.get("priceuse"),
-                                "phone": user_info.get("phone", ""),
-                                "name": user_info.get("user_name", ""),
-                                "shop": user_info.get("shop_name", ""),
-                                "match_type": match_type
-                            })
-                            found_tickets.add(ticket_id)
-
-        return jsonify({"results": results}), 200
-
-    except Exception as e:
-        print("❌ ERROR search_saller:", traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/search_index", methods=["POST"])
@@ -633,6 +550,7 @@ def search_number():
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
+ #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
 @app.route("/get_tickets_by_user", methods=["POST"])
 def get_tickets_by_user():
     try:
@@ -657,35 +575,7 @@ def get_tickets_by_user():
             })
 
         return jsonify({"results": results}), 200
-
-    except Exception as e:
-        print("❌ Error:", e)
-        return jsonify({"error": str(e)}), 500
-#------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
-@app.route("/get_tickets_by_user", methods=["POST"])
-def get_tickets_by_user():
-    try:
-        data = request.json
-        user_id = data.get("user_id")
-
-        if not user_id:
-            return jsonify({"error": "missing user_id"}), 400
-
-        tickets_ref = db.collection("lotterypost").document(user_id).collection("imagelottery")
-        tickets = list(tickets_ref.stream())
-
-        results = []
-        for t in tickets:
-            t_data = t.to_dict()
-            results.append({
-                "ticket_id": t.id,
-                "image_url": t_data.get("image_url", ""),
-                "number6": str(t_data.get("number6", "")).zfill(6),
-                "quantity": int(t_data.get("quantity", 0)),
-                "priceuse": float(t_data.get("priceuse", 0)),  # ✅ บังคับให้เป็น number
-            })
-
-        return jsonify({"results": results}), 200
+    
 
     except Exception as e:
         print("❌ Error:", e)
