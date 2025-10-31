@@ -278,7 +278,24 @@ def update_search_index(index_type, num, user_id, ticket_id):
         print(f"✅ บันทึก {index_type}/{num}/{user_id} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
-
+#------------------------------------
+def update_search_saller(index_type, saller, num, user_id, ticket_id):
+    if not num or not saller:
+        print("❌ update_search_saller: ข้อมูลไม่ครบ")
+        return
+    try:
+        db.collection("search_index") \
+            .document(saller) \
+            .collection(index_type) \
+            .document(str(num)) \
+            .collection("users") \
+            .document(user_id) \
+            .set({
+                ticket_id: True
+            })
+        print(f"✅ บันทึก {saller}/{index_type}/{num}/{user_id} สำเร็จ")
+    except Exception as e:
+        print(f"❌ Firestore error: {e}")
 # ------------------- Save Count -------------------
 @app.route("/save_count", methods=["POST"])
 def save_count():
@@ -332,15 +349,16 @@ def save_image():
     try:
         data = request.json
         user_id = data.get("user_id")
+        saller = data.get("referrer_id")  # ใช้เบอร์โทรผู้ขาย
         image_base64 = data.get("image_base64")
         number6 = data.get("number6")
         quantity = data.get("quantity")
         priceuse = data.get("priceuse")
-        
 
         if not user_id or not image_base64 or not number6 or not quantity or not priceuse:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
+        # ✅ บันทึกรูป
         image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
@@ -355,34 +373,39 @@ def save_image():
         image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
 
+        # ✅ บันทึกข้อมูลหลักใน Firestore
         doc_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
             "quantity": quantity,
             "priceuse": priceuse
-            #"created_at": datetime.utcnow()
         })
 
-        number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
+        number6_int = int(number6)
 
-        # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
-        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+        # ✅ อัปเดตดัชนีค้นหา 3 ระดับ
+        for digit_type, func in [
+            ("ten", get_tens_digit),
+            ("hundreds", get_hundreds_digit),
+            ("hundred_thousands", get_hundred_thousands_digit)
+        ]:
+            digit_value = func(number6_int)
+            index_name = f"{digit_value}_{digit_type}"
 
-        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+            # 🔹 เก็บใน search_index ทั่วไป
+            update_search_index(index_name, number6, user_id, ticket_id)
 
-        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
-        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+            # 🔹 เก็บใน search_index ของ saller (เฉพาะเมื่อมี saller)
+            if saller:
+                update_search_saller(index_name, saller, number6, user_id, ticket_id)
 
-        return jsonify({
-            "message": "บันทึกสำเร็จ"
-        }), 200
+        return jsonify({"message": "บันทึกสำเร็จ"}), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
+
 #------------------------------------------------------
 def get_match_type(search, number6, length):
     if length == 2 and search == number6[-2:]:
