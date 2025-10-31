@@ -521,8 +521,8 @@ def search_saller():
 
                             if match_type:
                                 results.append({
-                                    "user_id": user_id,
-                                    "ticket_id": ticket_id,
+                                     # "user_id": user_id,
+                                      # "ticket_id": ticket_id,
                                     "image_url": ticket_data.get("image_url"),
                                     "number6": number6_str,
                                     "quantity": ticket_data.get("quantity"),
@@ -624,8 +624,8 @@ def search_number():
 
                         if match_type:
                             results.append({
-                                "user_id": user_id,
-                                "ticket_id": ticket_id,
+                               # "user_id": user_id,
+                                # "ticket_id": ticket_id,
                                 "image_url": ticket_data.get("image_url"),
                                 "number6": number6_str,
                                 "quantity": ticket_data.get("quantity"),
