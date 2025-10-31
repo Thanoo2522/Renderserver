@@ -268,45 +268,46 @@ def get_hundred_thousands_digit(number: int) -> int:
 
 # ------------------- Update Search Index -------------------
 def update_search_index(index_type, num, user_id, ticket_id):
+    """
+    บันทึกข้อมูลลงใน Firestore แบบใหม่:
+    search_index / {index_type} / {num} / {ticket_id} / {"user_id": user_id}
+    """
     if not num:
         print("❌ update_search_index: num ว่าง")
         return
     try:
-        (
-            db.collection("search_index")
-              .document(index_type)                # เช่น "9_hundreds"
-              .collection(str(num))                # เช่น "730942"
-              .document(user_id)                   # เช่น "e46338c90642606d"
-              .collection("tickets")               # 🔹 collection รวมตั๋ว
-              #.document(ticket_id)                 # 🔹 document เป็น ticket_id
-              #.set({"user_id": user_id})
-              .set({
-            # ticket_id: {"user_id": user_id}
-            ticket_id: True
-        })
-        )
-        print(f"✅ บันทึก {index_type}/{num}/{user_id}/{ticket_id} สำเร็จ")
+        db.collection("search_index") \
+            .document(index_type) \
+            .collection(str(num)) \
+            .document(ticket_id) \
+            .set({
+                "user_id": user_id
+            })
+        print(f"✅ บันทึก search_index/{index_type}/{num}/{ticket_id} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
-
-# ------------------- Update Search   saller -------------------
 def update_search_saller(index_type, num, saller, ticket_id, user_id):
     """
-    บันทึก search_index สำหรับ saller/referrer
-    Firestore structure:
-    search_index / {saller} / {index_type} / {num} / {user_id} : {ticket_id: {"user_id": user_id}}
+    บันทึกข้อมูลของ saller แบบใหม่:
+    search_index / {saller} / {index_type} / {num} / {ticket_id} / {"user_id": user_id}
     """
     if not num or not saller:
         print("❌ update_search_saller: ข้อมูลไม่ครบ")
         return
     try:
-        db.collection("search_index").document(saller).collection(index_type).document(str(num)).set({
-            # ticket_id: {"user_id": user_id}
-            ticket_id: True
-        })
-        print(f"✅ บันทึก {index_type}/{num}/{saller} สำเร็จ")
+        db.collection("search_index") \
+            .document(saller) \
+            .collection(index_type) \
+            .document(str(num)) \
+            .collection("tickets") \
+            .document(ticket_id) \
+            .set({
+                "user_id": user_id
+            })
+        print(f"✅ บันทึก search_index/{saller}/{index_type}/{num}/{ticket_id} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
+
 
 # ------------------- Save Count -------------------
 @app.route("/save_count", methods=["POST"])
