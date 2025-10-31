@@ -253,6 +253,7 @@ def get_qr(phone):
         return jsonify({"error": "Seller not found"}), 404
 
 # ------------------ ฟังก์ชันคำนวณหลักเลข ------------------------
+# ------------------ ฟังก์ชันคำนวณหลักเลข ------------------------
 def get_tens_digit(number: int) -> int:
     return (int(number) // 10) % 10
 
@@ -266,48 +267,17 @@ def get_digits(number: int, start: int, end: int) -> int:
 def get_hundred_thousands_digit(number: int) -> int:
     return (int(number) // 100000) % 10
 
-# ------------------- Update Search Index -------------------
 def update_search_index(index_type, num, user_id, ticket_id):
-    """
-    บันทึกข้อมูลลงใน Firestore แบบใหม่:
-    search_index / {index_type} / {num} / {ticket_id} / {"user_id": user_id}
-    """
     if not num:
         print("❌ update_search_index: num ว่าง")
         return
     try:
-        db.collection("search_index") \
-            .document(index_type) \
-            .collection(str(num)) \
-            .document(ticket_id) \
-            .set({
-                "user_id": user_id
-            })
-        print(f"✅ บันทึก search_index/{index_type}/{num}/{ticket_id} สำเร็จ")
+        db.collection("search_index").document(index_type).collection(str(num)).document(user_id).set({
+            ticket_id: True
+        })
+        print(f"✅ บันทึก {index_type}/{num}/{user_id} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
-def update_search_saller(index_type, num, saller, ticket_id, user_id):
-    """
-    บันทึกข้อมูลของ saller แบบใหม่:
-    search_index / {saller} / {index_type} / {num} / {ticket_id} / {"user_id": user_id}
-    """
-    if not num or not saller:
-        print("❌ update_search_saller: ข้อมูลไม่ครบ")
-        return
-    try:
-        db.collection("search_index") \
-            .document(saller) \
-            .collection(index_type) \
-            .document(str(num)) \
-            .collection("tickets") \
-            .document(ticket_id) \
-            .set({
-                "user_id": user_id
-            })
-        print(f"✅ บันทึก search_index/{saller}/{index_type}/{num}/{ticket_id} สำเร็จ")
-    except Exception as e:
-        print(f"❌ Firestore error: {e}")
-
 
 # ------------------- Save Count -------------------
 @app.route("/save_count", methods=["POST"])
@@ -355,71 +325,64 @@ def save_count():
         print("❌ SERVER ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
-# ------------------- Run Flask -------------------
-if __name__ == "__main__":
-    app.run(debug=True)
+ 
 
 @app.route("/save_image", methods=["POST"])
 def save_image():
     try:
         data = request.json
         user_id = data.get("user_id")
-        referrer_id = data.get("referrer_id", "") 
         image_base64 = data.get("image_base64")
         number6 = data.get("number6")
         quantity = data.get("quantity")
         priceuse = data.get("priceuse")
+        
 
         if not user_id or not image_base64 or not number6 or not quantity or not priceuse:
             return jsonify({"error": "ข้อมูลไม่ครบ"}), 400
 
-        # แปลงภาพเป็น bytes
         image_bytes = base64.b64decode(image_base64)
         filename = f"{str(uuid.uuid4())}.jpg"
         filepath = os.path.join("/tmp", filename)
+
         with open(filepath, "wb") as f:
             f.write(image_bytes)
 
-        # อัปโหลด Firebase Storage
         blob = bucket.blob(f"lotterypost/{user_id}/imagelottery/{filename}")
         blob.upload_from_filename(filepath)
         blob.make_public()
-        image_url = blob.public_url
 
-        # ---------------- สร้าง ticket_id เพียงครั้งเดียว ----------------
+        image_url = blob.public_url
         ticket_id = str(uuid.uuid4())
 
-        # บันทึก Firestore
         doc_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
         doc_ref.set({
             "image_url": image_url,
             "number6": number6,
             "quantity": quantity,
-            "priceuse": priceuse,
-            "referrer_id": referrer_id    # เป็นเบอร์โทรของผู้แนะนำ
+            "priceuse": priceuse
+            #"created_at": datetime.utcnow()
         })
 
-        # แปลง number6 เป็น int สำหรับอัปเดต index
-        number6_int = int(number6)
+        number6_int = int(number6)  # แปลงเลขจริง ๆ จาก request
 
-        # อัปเดต search index ตามหลักเลข (ใช้ ticket_id เดียวกัน)
-        for digit_type, func in [("ten", get_tens_digit),
-                                 ("hundreds", get_hundreds_digit),
-                                 ("hundred_thousands", get_hundred_thousands_digit)]:
-            digit_value = func(number6_int)
-            index_id = f"{digit_value}_{digit_type}"
+        # ตรวจหลักสิบ หลักร้อย หลักแสน พร้อม log
+        for digit_type, func in [("ten", get_tens_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
-            update_search_index(index_id, number6, user_id, ticket_id)
-            update_search_saller(index_id, number6, referrer_id, ticket_id, user_id)
+        for digit_type, func in [("hundreds", get_hundreds_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
 
- 
-        return jsonify({"message": "บันทึกสำเร็จ"}), 200
+        for digit_type, func in [("hundred_thousands", get_hundred_thousands_digit)]:digit_value = func(number6_int) 
+        update_search_index(f"{digit_value}_{digit_type}", number6, user_id, ticket_id)
+
+        return jsonify({
+            "message": "บันทึกสำเร็จ"
+        }), 200
 
     except Exception as e:
-        import traceback
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-
 #------------------------------------------------------
 def get_match_type(search, number6, length):
     if length == 2 and search == number6[-2:]:
@@ -446,9 +409,7 @@ def get_index_name(number):
 
 
 # ------------------- Search Number -------------------
-
-
-@app.route("/search_index", methods=["POST"])
+@app.route("/search_number", methods=["POST"])
 def search_number():
     try:
         data = request.json
