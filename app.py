@@ -16,6 +16,7 @@ import io
 from io import BytesIO
 import firebase_admin
 from firebase_admin import credentials, firestore
+from firebase_admin import credentials, messaging
  
  
 
@@ -30,7 +31,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
 #--------------------------------
- 
+FCM_SERVER_KEY= os.environ.get("YOUR_FIREBASE_SERVER_KEY")
 #-------------------------------
 #if not service_account_json:
  #   raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
@@ -82,6 +83,40 @@ def ask_openai(filepath, question):
 
     return raw_answer
 
+#-----------------------------------------------------
+@app.route("/send_to_buyer", methods=["POST"])
+def send_to_buyer():
+    try:
+        data = request.get_json(force=True)
+        token = data.get("buyer_token")
+        message_text = data.get("message")
+
+        if not token:
+            return jsonify({"error": "❌ ไม่มี buyer_token"}), 400
+
+        # ✅ สร้างข้อความแจ้งเตือน
+        message = messaging.Message(
+            notification=messaging.Notification(
+                title="📢 ข้อความใหม่จาก Flask",
+                body=message_text
+            ),
+            token=token
+        )
+
+        # ✅ ส่งข้อความผ่าน FCM HTTP v1 API (ใช้ service account ที่คุณ initialize ไว้แล้ว)
+        response = messaging.send(message)
+
+        print(f"📨 ส่งสำเร็จ: {response}")
+        return jsonify({
+            "status": "success",
+            "response": response,
+            "buyer_token": token,
+            "message": message_text
+        })
+
+    except Exception as e:
+        print("❌ Error:", e)
+        return jsonify({"error": str(e)}), 500
 
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
