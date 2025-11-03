@@ -299,7 +299,7 @@ def update_search_saller(index_type, saller, num, user_id, ticket_id):
         print(f"❌ Firestore error: {e}")
         # ------------------- Save Count -------------------
 @app.route("/frist_count", methods=["POST"])
-def save_count():
+def frist_count():
     try:
         data = request.get_json(force=True)
         print("📥 รับข้อมูล:", data)
