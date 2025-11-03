@@ -145,11 +145,11 @@ def get_count():
         result = {
             "numimage": user_data.get("numimage", 0),
             "numcall": user_data.get("numcall", 0),
-            "status": user_data.get("status", 0),
-            "Quota": user_data.get("Quota", 0),
+            # "status": user_data.get("status", 0),
+             #"Quota": user_data.get("Quota", 0),
             "counterimage": user_data.get("counterimage", 0),  # ✅ เพิ่มบรรทัดนี้
          
-            "startdatetime": user_data.get("startdatetime", 0)
+             #"startdatetime": user_data.get("startdatetime", 0)
         }
 
         return jsonify(result), 200
