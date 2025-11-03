@@ -298,7 +298,7 @@ def update_search_saller(index_type, saller, num, user_id, ticket_id):
     except Exception as e:
         print(f"❌ Firestore error: {e}")
         # ------------------- Save Count -------------------
-@app.route("/save_count_1", methods=["POST"])
+@app.route("/frist_count", methods=["POST"])
 def save_count():
     try:
         data = request.get_json(force=True)
