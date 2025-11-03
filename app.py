@@ -16,7 +16,6 @@ import io
 from io import BytesIO
 import firebase_admin
 from firebase_admin import credentials, firestore
-from firebase_admin import credentials, messaging
  
  
 
@@ -31,7 +30,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
 #--------------------------------
-FCM_SERVER_KEY= os.environ.get("YOUR_FIREBASE_SERVER_KEY")
+ 
 #-------------------------------
 #if not service_account_json:
  #   raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
@@ -83,7 +82,7 @@ def ask_openai(filepath, question):
 
     return raw_answer
 
-#-----------------------------------------------------
+
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
@@ -148,7 +147,7 @@ def get_count():
             "numcall": user_data.get("numcall"),
             "status": user_data.get("status"),
             "Quota": user_data.get("Quota"),
-            "countimage": user_data.get("countimage"),
+            "counterimage": user_data.get("counterimage"),
             "startdatetime": user_data.get("startdatetime")
         }
 
@@ -272,7 +271,7 @@ def get_hundred_thousands_digit(number: int) -> int:
 def update_search_index(index_type, num, user_id, ticket_id):
     if not num:
         print("❌ update_search_index: num ว่าง")
-        return save_count
+        return
     try:
         db.collection("search_index").document(index_type).collection(str(num)).document(user_id).set({
             ticket_id: True
@@ -298,17 +297,18 @@ def update_search_saller(index_type, saller, num, user_id, ticket_id):
         print(f"✅ บันทึก {saller}/{index_type}/{num}/{user_id} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
-        # ------------------- Save Count -------------------
-@app.route("/frist_count", methods=["POST"])
-def frist_count():
+# ------------------- Save Count -------------------
+@app.route("/save_count", methods=["POST"])
+def save_count():
     try:
         data = request.get_json(force=True)
         print("📥 รับข้อมูล:", data)
 
         user_id = data.get("user_id")
-       # referrer_id = data.get("referrer_id", "")  # optional
+        referrer_id = data.get("referrer_id", "")  # optional
         numimage = data.get("numimage")
         numcall = data.get("numcall")
+        counterimage= data.get("counterimage")
         status = data.get("status", "pass")
         quota = data.get("quota") or data.get("Quota")
         startdatetime = data.get("startdatetime")
@@ -323,14 +323,20 @@ def frist_count():
             "numcall": numcall,
             "status": status,
             "Quota": quota,
-            "countimage": "0",
             "startdatetime": startdatetime,
-        
+            "counterimage" : counterimage,
+            "referrer_id": referrer_id
         }, merge=True)
+
+        print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
+
+        # เรียก update_search_index
+        update_search_index(user_id, numimage, numcall, referrer_id)
 
         return jsonify({
             "message": "บันทึกข้อมูลสำเร็จ",
             "user_id": user_id,
+            "referrer_id": referrer_id,
             "Quota": quota,
             "startdatetime": startdatetime
         }), 200
@@ -339,39 +345,7 @@ def frist_count():
         print("❌ SERVER ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
-# ------------------- Save Count -------------------
-@app.route("/save_count", methods=["POST"])
-def save_count():
-    try:
-        data = request.get_json(force=True)
-        print("📥 รับข้อมูล:", data)
-
-        referrer_id = data.get("referrer_id", "")  # = เบอรืดทรของเครื่องนั้นๆ
-        numimage = data.get("numimage ")
-        numcall = data.get("numcall")
-        countimage = data.get("countimage")
-     
-        # บันทึก count_process   , (user_id) = เบอรืดทรของเครื่องนั้นๆ
-        doc_ref = db.collection("count_process").document(referrer_id)
-        doc_ref.update({
-            "numimage": numimage,
-            "numcall": numcall,
-            "countimage":countimage
-            
-        }, merge=True)
-
-     
-        return jsonify({
-            "message": "บันทึกข้อมูลสำเร็จ",
-            "referrer_id": referrer_id,
-            "countimage":countimage
-        }), 200
-
-    except Exception as e:
-        print("❌ SERVER ERROR:", e)
-        return jsonify({"error": str(e)}), 500
-
- #-----------------------------------------------------------------------
+ 
 
 @app.route("/save_image", methods=["POST"])
 def save_image():
