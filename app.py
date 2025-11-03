@@ -309,7 +309,7 @@ def save_count():
         referrer_id = data.get("referrer_id", "")
         numimage = data.get("numimage")
         numcall = data.get("numcall")
-        counterimage = data.get("counterimage", "0")  # ✅ เพิ่มบรรทัดนี้
+        counterimage = data.get("counterimage")  # ✅ เพิ่มบรรทัดนี้
         status = data.get("status", "pass")
         quota = data.get("quota") or data.get("Quota")
         startdatetime = data.get("startdatetime")
