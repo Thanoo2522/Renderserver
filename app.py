@@ -309,7 +309,11 @@ def save_count():
         referrer_id = data.get("referrer_id", "")  # optional
         numimage = data.get("numimage")
         numcall = data.get("numcall")
+<<<<<<< HEAD
         counterimage = data.get("counterimage", "0")  # ✅ เพิ่มบรรทัดนี้
+=======
+        counterimage  = data.get("counterimage")
+>>>>>>> temp-branch
         status = data.get("status", "pass")
         quota = data.get("quota") or data.get("Quota")
         startdatetime = data.get("startdatetime")
@@ -326,7 +330,7 @@ def save_count():
             "Quota": quota,
              "counterimage": counterimage,  # ✅ เพิ่มตรงนี้
             "startdatetime": startdatetime,
-            "referrer_id": referrer_id
+                "referrer_id": referrer_id
         }, merge=True)
 
         print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
@@ -385,6 +389,7 @@ def save_image():
             "quantity": quantity,
             "priceuse": priceuse
         })
+
 
         number6_int = int(number6)
 
