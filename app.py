@@ -322,6 +322,7 @@ def save_count():
             "numcall": numcall,
             "status": status,
             "Quota": quota,
+            "countimage": "0",
             "startdatetime": startdatetime,
         
         }, merge=True)
