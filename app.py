@@ -297,15 +297,15 @@ def update_search_saller(index_type, saller, num, user_id, ticket_id):
         print(f"✅ บันทึก {saller}/{index_type}/{num}/{user_id} สำเร็จ")
     except Exception as e:
         print(f"❌ Firestore error: {e}")
-# ------------------- Save Count -------------------
-@app.route("/save_count", methods=["POST"])
+        # ------------------- Save Count -------------------
+@app.route("/save_count_1", methods=["POST"])
 def save_count():
     try:
         data = request.get_json(force=True)
         print("📥 รับข้อมูล:", data)
 
         user_id = data.get("user_id")
-        referrer_id = data.get("referrer_id", "")  # optional
+       # referrer_id = data.get("referrer_id", "")  # optional
         numimage = data.get("numimage")
         numcall = data.get("numcall")
         status = data.get("status", "pass")
@@ -323,18 +323,12 @@ def save_count():
             "status": status,
             "Quota": quota,
             "startdatetime": startdatetime,
-            "referrer_id": referrer_id
+        
         }, merge=True)
-
-        print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
-
-        # เรียก update_search_index
-        update_search_index(user_id, numimage, numcall, referrer_id)
 
         return jsonify({
             "message": "บันทึกข้อมูลสำเร็จ",
             "user_id": user_id,
-            "referrer_id": referrer_id,
             "Quota": quota,
             "startdatetime": startdatetime
         }), 200
@@ -343,7 +337,39 @@ def save_count():
         print("❌ SERVER ERROR:", e)
         return jsonify({"error": str(e)}), 500
 
- 
+# ------------------- Save Count -------------------
+@app.route("/save_count", methods=["POST"])
+def save_count():
+    try:
+        data = request.get_json(force=True)
+        print("📥 รับข้อมูล:", data)
+
+        referrer_id = data.get("referrer_id", "")  # = เบอรืดทรของเครื่องนั้นๆ
+        numimage = data.get("numimage ")
+        numcall = data.get("numcall")
+        countimage = data.get("countimage")
+     
+        # บันทึก count_process   , (user_id) = เบอรืดทรของเครื่องนั้นๆ
+        doc_ref = db.collection("count_process").document(referrer_id)
+        doc_ref.update({
+            "numimage": numimage,
+            "numcall": numcall,
+            "countimage":countimage
+            
+        }, merge=True)
+
+     
+        return jsonify({
+            "message": "บันทึกข้อมูลสำเร็จ",
+            "referrer_id": referrer_id,
+            "countimage":countimage
+        }), 200
+
+    except Exception as e:
+        print("❌ SERVER ERROR:", e)
+        return jsonify({"error": str(e)}), 500
+
+ #-----------------------------------------------------------------------
 
 @app.route("/save_image", methods=["POST"])
 def save_image():
