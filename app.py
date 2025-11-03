@@ -147,6 +147,8 @@ def get_count():
             "numcall": user_data.get("numcall", 0),
             "status": user_data.get("status", 0),
             "Quota": user_data.get("Quota", 0),
+            "counterimage": user_data.get("counterimage", 0),  # ✅ เพิ่มบรรทัดนี้
+         
             "startdatetime": user_data.get("startdatetime", 0)
         }
 
@@ -307,6 +309,7 @@ def save_count():
         referrer_id = data.get("referrer_id", "")  # optional
         numimage = data.get("numimage")
         numcall = data.get("numcall")
+        counterimage = data.get("counterimage", "0")  # ✅ เพิ่มบรรทัดนี้
         status = data.get("status", "pass")
         quota = data.get("quota") or data.get("Quota")
         startdatetime = data.get("startdatetime")
@@ -321,6 +324,7 @@ def save_count():
             "numcall": numcall,
             "status": status,
             "Quota": quota,
+             "counterimage": counterimage,  # ✅ เพิ่มตรงนี้
             "startdatetime": startdatetime,
             "referrer_id": referrer_id
         }, merge=True)
