@@ -306,14 +306,10 @@ def save_count():
         print("📥 รับข้อมูล:", data)
 
         user_id = data.get("user_id")
-        referrer_id = data.get("referrer_id", "")  # optional
+        referrer_id = data.get("referrer_id", "")
         numimage = data.get("numimage")
         numcall = data.get("numcall")
-<<<<<<< HEAD
         counterimage = data.get("counterimage", "0")  # ✅ เพิ่มบรรทัดนี้
-=======
-        counterimage  = data.get("counterimage")
->>>>>>> temp-branch
         status = data.get("status", "pass")
         quota = data.get("quota") or data.get("Quota")
         startdatetime = data.get("startdatetime")
@@ -321,16 +317,16 @@ def save_count():
         if not user_id:
             return jsonify({"error": "ต้องระบุ user_id"}), 400
 
-        # บันทึก count_process
+        # ✅ บันทึก counterimage ด้วย
         doc_ref = db.collection("count_process").document(user_id)
         doc_ref.set({
             "numimage": numimage,
             "numcall": numcall,
+            "counterimage": counterimage,  # ✅ เพิ่มตรงนี้
             "status": status,
             "Quota": quota,
-             "counterimage": counterimage,  # ✅ เพิ่มตรงนี้
             "startdatetime": startdatetime,
-                "referrer_id": referrer_id
+            "referrer_id": referrer_id
         }, merge=True)
 
         print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
@@ -343,13 +339,13 @@ def save_count():
             "user_id": user_id,
             "referrer_id": referrer_id,
             "Quota": quota,
-            "startdatetime": startdatetime
+            "startdatetime": startdatetime,
+            "counterimage": counterimage  # ✅ ส่งกลับด้วย
         }), 200
 
     except Exception as e:
         print("❌ SERVER ERROR:", e)
         return jsonify({"error": str(e)}), 500
-
  
 
 @app.route("/save_image", methods=["POST"])
