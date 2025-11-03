@@ -143,12 +143,11 @@ def get_count():
 
         # ✅ กำหนดรูปแบบข้อมูลที่จะส่งกลับ
         result = {
-            "numimage": user_data.get("numimage"),
-            "numcall": user_data.get("numcall"),
-            "status": user_data.get("status"),
-            "Quota": user_data.get("Quota"),
-            "counterimage": user_data.get("counterimage"),
-            "startdatetime": user_data.get("startdatetime")
+            "numimage": user_data.get("numimage", 0),
+            "numcall": user_data.get("numcall", 0),
+            "status": user_data.get("status", 0),
+            "Quota": user_data.get("Quota", 0),
+            "startdatetime": user_data.get("startdatetime", 0)
         }
 
         return jsonify(result), 200
@@ -308,7 +307,7 @@ def save_count():
         referrer_id = data.get("referrer_id", "")  # optional
         numimage = data.get("numimage")
         numcall = data.get("numcall")
-        counterimage= data.get("counterimage")
+        counterimage  = data.get("counterimage")
         status = data.get("status", "pass")
         quota = data.get("quota") or data.get("Quota")
         startdatetime = data.get("startdatetime")
@@ -323,9 +322,9 @@ def save_count():
             "numcall": numcall,
             "status": status,
             "Quota": quota,
+             "counterimage": counterimage,  # ✅ เพิ่มตรงนี้
             "startdatetime": startdatetime,
-            "counterimage" : counterimage,
-            "referrer_id": referrer_id
+                "referrer_id": referrer_id
         }, merge=True)
 
         print("✅ บันทึกสำเร็จ:", user_id, referrer_id, quota, startdatetime)
@@ -384,6 +383,7 @@ def save_image():
             "quantity": quantity,
             "priceuse": priceuse
         })
+
 
         number6_int = int(number6)
 
