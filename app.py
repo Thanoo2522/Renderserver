@@ -648,37 +648,6 @@ def search_number():
     except Exception as e:
         print("❌ SERVER ERROR:", traceback.format_exc())
         return jsonify({"error": str(e)}), 500
-#------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
- #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
-@app.route("/get_tickets_by_user", methods=["POST"])
-def get_tickets_by_user():
-    try:
-        data = request.json
-        user_id = data.get("user_id")
-
-        if not user_id:
-            return jsonify({"error": "missing user_id"}), 400
-
-        tickets_ref = db.collection("lotterypost").document(user_id).collection("imagelottery")
-        tickets = list(tickets_ref.stream())
-
-        results = []
-        for t in tickets:
-            t_data = t.to_dict()
-            results.append({
-                "ticket_id": t.id,
-                "image_url": t_data.get("image_url", ""),
-                "number6": str(t_data.get("number6", "")).zfill(6),
-                "quantity": int(t_data.get("quantity", 0)),
-                "priceuse": float(t_data.get("priceuse", 0)),  # ✅ บังคับให้เป็น number
-            })
-
-        return jsonify({"results": results}), 200
-    
-
-    except Exception as e:
-        print("❌ Error:", e)
-        return jsonify({"error": str(e)}), 500
 
  # ---------------- อ่านข้แมูลจาก firestore แล้วส่งกลับ maui ----------------
 @app.route("/get_user", methods=["POST"])
