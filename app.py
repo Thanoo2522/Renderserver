@@ -144,11 +144,12 @@ def get_count():
 
         # ✅ กำหนดรูปแบบข้อมูลที่จะส่งกลับ
         result = {
-            "numimage": user_data.get("numimage", 0),
-            "numcall": user_data.get("numcall", 0),
-            "status": user_data.get("status", 0),
-            "Quota": user_data.get("Quota", 0),
-            "startdatetime": user_data.get("startdatetime", 0)
+            "numimage": user_data.get("numimage"),
+            "numcall": user_data.get("numcall"),
+            "status": user_data.get("status"),
+            "Quota": user_data.get("Quota"),
+            "countimage": user_data.get("countimage"),
+            "startdatetime": user_data.get("startdatetime")
         }
 
         return jsonify(result), 200
@@ -271,7 +272,7 @@ def get_hundred_thousands_digit(number: int) -> int:
 def update_search_index(index_type, num, user_id, ticket_id):
     if not num:
         print("❌ update_search_index: num ว่าง")
-        return
+        return save_count
     try:
         db.collection("search_index").document(index_type).collection(str(num)).document(user_id).set({
             ticket_id: True
