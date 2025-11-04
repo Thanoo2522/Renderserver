@@ -705,7 +705,7 @@ def delete_ticket():
         print("❌ Delete error:", e)
         return jsonify({"error": str(e)}), 500
  #--------------------------------------- เปลี่ยนราคา --------------------
- # @app.route("/update_ticket_price", methods=["POST"])
+@app.route("/update_ticket_price", methods=["POST"])
 def update_ticket_price():
     try:
         data = request.get_json(force=True)
@@ -733,6 +733,8 @@ def update_ticket_price():
     except Exception as e:
         print("❌ Update price error:", e)
         return jsonify({"error": str(e)}), 500
+
+
    
 
  # ---------------- อ่านข้แมูลจาก firestore แล้วส่งกลับ maui ----------------
