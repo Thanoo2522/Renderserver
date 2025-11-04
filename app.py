@@ -726,7 +726,8 @@ def update_ticket_price():
             return jsonify({"status": "not_found", "message": "Ticket not found"}), 404
 
         # ✅ อัปเดตราคา
-        ticket_ref.update({"priceuse": float(new_price)})
+        ticket_ref.update({"priceuse": str(new_price)})
+
 
         return jsonify({"status": "success", "message": f"Updated price for {ticket_id}"}), 200
 
