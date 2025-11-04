@@ -678,6 +678,62 @@ def get_tickets_by_user():
     except Exception as e:
         print("❌ Error:", e)
         return jsonify({"error": str(e)}), 500
+ #---------------- ลบ เลขออกจาก firestore database ------------------------   
+@app.route("/delete_ticket", methods=["POST"])
+def delete_ticket():
+    try:
+        data = request.get_json(force=True)
+        user_id = data.get("user_id")
+        ticket_id = data.get("ticket_id")
+
+        if not user_id or not ticket_id:
+            return jsonify({"error": "missing user_id or ticket_id"}), 400
+
+        # 🔥 ชี้ไปที่ document ที่ต้องการลบ
+        ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+
+        # ตรวจสอบว่ามีอยู่จริงไหม
+        if not ticket_ref.get().exists:
+            return jsonify({"status": "not_found", "message": "Ticket not found"}), 404
+
+        # ลบ document
+        ticket_ref.delete()
+
+        return jsonify({"status": "success", "message": f"Deleted ticket_id: {ticket_id}"}), 200
+
+    except Exception as e:
+        print("❌ Delete error:", e)
+        return jsonify({"error": str(e)}), 500
+ #--------------------------------------- เปลี่ยนราคา --------------------
+ # @app.route("/update_ticket_price", methods=["POST"])
+def update_ticket_price():
+    try:
+        data = request.get_json(force=True)
+        user_id = data.get("user_id")
+        ticket_id = data.get("ticket_id")
+        new_price = data.get("new_price")
+
+        if not user_id or not ticket_id:
+            return jsonify({"error": "missing user_id or ticket_id"}), 400
+
+        if new_price is None:
+            return jsonify({"error": "missing new_price"}), 400
+
+        # 🔥 ชี้ document ที่จะอัปเดต
+        ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+
+        if not ticket_ref.get().exists:
+            return jsonify({"status": "not_found", "message": "Ticket not found"}), 404
+
+        # ✅ อัปเดตราคา
+        ticket_ref.update({"priceuse": float(new_price)})
+
+        return jsonify({"status": "success", "message": f"Updated price for {ticket_id}"}), 200
+
+    except Exception as e:
+        print("❌ Update price error:", e)
+        return jsonify({"error": str(e)}), 500
+   
 
  # ---------------- อ่านข้แมูลจาก firestore แล้วส่งกลับ maui ----------------
 @app.route("/get_user", methods=["POST"])
