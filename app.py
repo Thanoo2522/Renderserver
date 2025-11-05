@@ -160,8 +160,40 @@ def get_count():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)   
-# ---------------- บันทึกการนับภาพ นับการคลิกโทร ----------------
+    #--------------------------------------------------------
+# 🔹 สร้าง document system/way และตั้งค่า connected="true"
+ 
+@app.route("/create_connection", methods=["POST"])
+def create_connection():
+    try:
+        doc_ref = db.collection("system").document("way")
+        doc_ref.set({"connected": "true"})
+        return jsonify({"status": "success", "message": "connected=true created"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+   
+# ---------------- เช็คการเชื่อมต่อกับ firestore database ----------------
+@app.route("/check_connection", methods=["GET"])
+def check_connection():
+    try:
+        # 🔹 เข้าถึง document system/way
+        doc_ref = db.collection("system").document("way")
+        doc = doc_ref.get()
 
+        if not doc.exists:
+            return jsonify({"status": "error", "message": "Document not found"}), 404
+
+        data = doc.to_dict()
+        connected = data.get("connected", "false")
+
+        if connected == "true":
+            return jsonify({"status": "success", "connected": True})
+        else:
+            return jsonify({"status": "success", "connected": False})
+
+    except Exception as e:
+        print("❌ Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
