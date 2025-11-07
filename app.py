@@ -23,27 +23,29 @@ import tempfile
 app = Flask(__name__)
 
 # ------------------- Config -------------------get_user
-# 🔹 กำหนดค่าพื้นฐาน
-FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/"
+ 
+#----------------------
+FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
+RTD_URL1 = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app"
 BUCKET_NAME = "lotteryview.firebasestorage.app"
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# 🔹 โหลด service account จาก environment
 service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
+#--------------------------------
+ 
+#-------------------------------
+#if not service_account_json:
+ #   raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
+
 cred = credentials.Certificate(json.loads(service_account_json))
+firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME,"databaseURL": RTD_URL1})
 
-# ✅ ต้อง initialize Firebase ก่อนเรียกใช้ client
-firebase_admin.initialize_app(cred, {
-    "storageBucket": BUCKET_NAME,
-    "databaseURL": FIREBASE_URL
-})
-
-# 🔹 จากนั้นค่อยสร้าง instance ต่าง ๆ
-db = firestore.client()        # ← Firestore (ชื่อเดิมใช้ได้)
+db = firestore.client()
 rtdb_ref = rtdb.reference("/") # ← Realtime Database root
-bucket = storage.bucket()      # ← Firebase Storage
+bucket = storage.bucket()
+#---------------------
 
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
