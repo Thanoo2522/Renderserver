@@ -10,7 +10,7 @@ import json
 import time
 import requests
 import firebase_admin
-from firebase_admin import credentials, storage, firestore
+from firebase_admin import credentials, storage, db as rtdb, firestore
 import qrcode
 import io
 from io import BytesIO
@@ -23,7 +23,7 @@ import tempfile
 app = Flask(__name__)
 
 # ------------------- Config -------------------get_user
-FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
+FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/"
 BUCKET_NAME = "lotteryview.firebasestorage.app"
 
 UPLOAD_FOLDER = "uploads"
@@ -39,8 +39,18 @@ service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
 cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
-db = firestore.client()
-bucket = storage.bucket()
+db = firestore.client()   # ← ใช้ชื่อเดิมเหมือนโค้ดเก่าได้เลย (Firestore)
+rtdb_ref = rtdb.reference("/")   # ← ใช้ Realtime Database เพิ่มได้
+bucket = storage.bucket()        # ← ใช้ Storage ได้
+
+# ✅ initialize Firebase App ครั้งเดียว
+firebase_admin.initialize_app(cred, {
+    "storageBucket": BUCKET_NAME,
+    "databaseURL": FIREBASE_URL
+})
+
+ 
+
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
@@ -198,6 +208,44 @@ def check_connection():
 
     except Exception as e:
         print("❌ Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+#-----------------------------------------------------------
+# ✅ GET: ดึงค่า numimage จาก Realtime Database
+# ============================================
+# 🔹 ดึงค่า numimage
+# ============================================
+@app.route("/get_numimage", methods=["GET"])
+def get_numimage():
+    try:
+        # 🔸 อ่านค่าจาก path: /searchusers/numimage
+        value = rtdb_ref.child("searchusers/numimage").get()
+        if value is None:
+            return jsonify({"status": "error", "message": "numimage not found"}), 404
+
+        return jsonify({"status": "success", "numimage": value}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ============================================
+# 🔹 บันทึกค่า numimage , Realtime Database
+# ============================================
+@app.route("/set_numimage", methods=["POST"])
+def set_numimage():
+    try:
+        data = request.get_json(force=True)
+        numimage = data.get("numimage")
+
+        if numimage is None:
+            return jsonify({"status": "error", "message": "Missing numimage"}), 400
+
+        # 🔸 บันทึกลง Realtime Database
+        rtdb_ref.child("searchusers/numimage").set(int(numimage))
+
+        return jsonify({
+            "status": "success",
+            "message": f"numimage updated to {numimage}"
+        }), 200
+    except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 #--------------------- ดึงรุปจาก store ----------------------
 @app.route('/get_image/<filename>', methods=['GET'])
