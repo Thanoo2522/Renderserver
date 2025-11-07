@@ -37,7 +37,7 @@ service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
  #   raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
 
 cred = credentials.Certificate(json.loads(service_account_json))
-firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
+#firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
 db = firestore.client()   # ← ใช้ชื่อเดิมเหมือนโค้ดเก่าได้เลย (Firestore)
 rtdb_ref = rtdb.reference("/")   # ← ใช้ Realtime Database เพิ่มได้
