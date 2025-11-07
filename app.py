@@ -1,5 +1,5 @@
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory
 import os
 import base64
 from datetime import datetime
@@ -16,6 +16,7 @@ import io
 from io import BytesIO
 import firebase_admin
 from firebase_admin import credentials, firestore
+import tempfile
  
  
 
@@ -198,6 +199,23 @@ def check_connection():
     except Exception as e:
         print("❌ Error:", e)
         return jsonify({"status": "error", "message": str(e)}), 500
+#--------------------- ดึงรุปจาก store ----------------------
+@app.route('/get_image/<filename>', methods=['GET'])
+def get_image(filename):
+    try:
+        bucket = storage.bucket()
+        blob = bucket.blob(f"BoolBank/{filename}")
+        if not blob.exists():
+            return jsonify({"error": "File not found"}), 404
+        
+        # 🔹 โหลดไฟล์ชั่วคราวเพื่อส่งกลับ
+        temp = tempfile.NamedTemporaryFile(delete=False)
+        blob.download_to_filename(temp.name)
+
+        return send_file(temp.name, mimetype='image/jpeg')
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500       
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
