@@ -88,8 +88,30 @@ def ask_openai(filepath, question):
         raw_answer = raw_answer[first_brace:last_brace+1]
 
     return raw_answer
+#------------------- chatbot--------------------------
+@app.route("/chat_gpt", methods=["POST"])
+def chat_gpt():
+    try:
+        data = request.get_json()
+        user_message = data.get("message", "")
 
+        if not user_message:
+            return jsonify({"error": "Missing message"}), 400
 
+        # 🔹 เรียก GPT ผ่าน OpenAI SDK
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "คุณคือผู้ช่วยที่สุภาพและเป็นกันเอง ช่วยตอบให้กระชับและเข้าใจง่าย"},
+                {"role": "user", "content": user_message}
+            ]
+        )
+
+        reply = completion.choices[0].message.content
+        return jsonify({"reply": reply})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 # ------------------- Upload Image -------------------
 @app.route("/upload_image", methods=["POST"])
 def upload_image():
