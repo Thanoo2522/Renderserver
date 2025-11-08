@@ -244,7 +244,18 @@ def get_numimage():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# ============================================
+# ====================ดึงราคาจาก reltime database========================
+@app.route("/get_price", methods=["GET"])
+def get_price():
+    url = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/searchusers/priceLottery.json"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        price = response.json()
+        return jsonify({"status": "success", "priceLottery": price})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
 # 🔹 บันทึกค่า numimage , Realtime Database
 # ============================================
 @app.route("/set_numimage", methods=["POST"])
