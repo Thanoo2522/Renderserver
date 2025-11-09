@@ -299,7 +299,7 @@ def save_user():
     data = request.get_json()
     user_id = data.get("user_id")          # deviceId
     shop_name = data.get("shop_name")
-    user_name = data.get("user_name")
+    #user_name = data.get("user_name")
     phone = data.get("phone")
     referrer_id = data.get("referrer_id", "")
     register_date = data.get("register_date")
@@ -311,7 +311,7 @@ def save_user():
     doc_ref = db.collection("users").document(user_id)
     doc_ref.set({
         "shop_name": shop_name,
-        "user_name": user_name,
+        #"user_name": user_name,
         "phone": phone,
         "referrer_id": referrer_id,
         "register_date": register_date
@@ -630,13 +630,13 @@ def search_saller():
                             user_ref = db.collection("users").document(user_id)
                             user_doc = user_ref.get()
                             phone = ""
-                            name = ""
+                            #name = ""
                             shop = ""
 
                             if user_doc.exists:
                                 user_data = user_doc.to_dict()
                                 phone = user_data.get("phone", "")
-                                name = user_data.get("user_name", "")
+                               # name = user_data.get("user_name", "")
                                 shop = user_data.get("shop_name", "")
 
                             ticket_data = ticket_doc.to_dict()
@@ -664,7 +664,7 @@ def search_saller():
                                     "quantity": ticket_data.get("quantity"),
                                     "priceuse": ticket_data.get("priceuse"),
                                     "phone": phone,
-                                    "name": name,
+                                    #"name": name,
                                     "shop": shop,
                                     "match_type": match_type
                                 })
@@ -733,13 +733,13 @@ def search_number():
                         user_ref = db.collection("users").document(user_id)
                         user_doc = user_ref.get()
                         phone = ""
-                        name = ""
+                       # name = ""
                         shop = ""
 
                         if user_doc.exists:
                             user_data = user_doc.to_dict()
                             phone = user_data.get("phone", "")
-                            name = user_data.get("user_name", "")
+                           # name = user_data.get("user_name", "")
                             shop = user_data.get("shop_name", "")
 
                         ticket_data = ticket_doc.to_dict()
@@ -767,7 +767,7 @@ def search_number():
                                 "quantity": ticket_data.get("quantity"),
                                  "priceuse": ticket_data.get("priceuse"),
                                 "phone": phone,
-                                "name": name,
+                                #"name": name,
                                 "shop": shop,
                                
                                 "match_type": match_type
