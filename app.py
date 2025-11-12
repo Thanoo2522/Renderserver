@@ -306,20 +306,32 @@ def save_user():
         if not user_id or not phone:
             return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
 
-        # ------------------- อัปโหลด image -------------------
+        # ------------------- Upload Base64 image to Storage -------------------
         image_url = None
         if base64_image:
-            image_data = base64.b64decode(base64_image)
-            filename = f"{user_id}.jpg"
-            blob = bucket.blob(f"bookbankshop/{filename}")
-            blob.upload_from_string(image_data, content_type="image/jpeg")
+            # แปลง base64 → bytes
+            image_bytes = base64.b64decode(base64_image)
+            filename = f"{str(uuid.uuid4())}.jpg"
+            filepath = os.path.join("/tmp", filename)
+
+            # เขียนไฟล์ชั่วคราว
+            with open(filepath, "wb") as f:
+                f.write(image_bytes)
+
+            # สร้าง blob path แบบ folder: lotterypost/{user_id}/imagelottery/{filename}
+            blob = bucket.blob(f"bookbankshop/{user_id}{filename}")
+            blob.upload_from_filename(filepath)
             blob.make_public()
+
             image_url = blob.public_url
+
+            # ลบไฟล์ชั่วคราว
+            os.remove(filepath)
 
         # ------------------- Firestore -------------------
         doc_ref = db.collection("users").document(user_id)
 
-        # default fields
+        # default field สำหรับธนาคาร
         user_data = {
             "shop_name": shop_name,
             "phone": phone,
@@ -331,12 +343,12 @@ def save_user():
         if image_url:
             user_data["image_url"] = image_url
 
-        # ข้อมูลธนาคารจาก MAUI
-        user_data["bankName"] = data.get("bankName")
-        user_data["accountName"] = data.get("accountName")
-        user_data["accountNumber"] = data.get("accountNumber")
+        # ข้อมูลธนาคารจาก MAUI (แม้บาง field เป็น empty string)
+        user_data["bankName"] = data.get("bankName") or None
+        user_data["accountName"] = data.get("accountName") or None
+        user_data["accountNumber"] = data.get("accountNumber") or None
 
-        # merge=True เพื่ออัปเดต document เดิม
+        # บันทึกลง Firestore (merge=True เพื่ออัปเดต document เดิม)
         doc_ref.set(user_data, merge=True)
 
         return jsonify({"status": "success", "image_url": image_url}), 200
