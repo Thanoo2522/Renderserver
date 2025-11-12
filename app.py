@@ -296,30 +296,54 @@ def get_image(filename):
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
-    data = request.get_json()
-    user_id = data.get("user_id")          # deviceId
-    shop_name = data.get("shop_name")
-    #user_name = data.get("user_name")
-    phone = data.get("phone")
-    referrer_id = data.get("referrer_id", "")
-    register_date = data.get("register_date")
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        shop_name = data.get("shop_name")
+        phone = data.get("phone")
+        base64_image = data.get("base64Image")
 
-    if not user_id or not phone:
-        return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
+        if not user_id or not phone:
+            return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
 
-    # ------------------- บันทึก Firestore -------------------
-    doc_ref = db.collection("users").document(user_id)
-    doc_ref.set({
-        "shop_name": shop_name,
-        #"user_name": user_name,
-        "phone": phone,
-        "referrer_id": referrer_id,
-        "register_date": register_date
-    }, merge=True)
+        image_url = None
+        # ✅ Upload Base64 image to Storage
+        if base64_image:
+            image_data = base64.b64decode(base64_image)
+            filename = f"{user_id}.jpg"
+            blob = bucket.blob(f"bookbankshop/{filename}")
+            blob.upload_from_string(image_data, content_type="image/jpeg")
+            blob.make_public()  # ให้ URL เข้าถึงได้จากภายนอก
+            image_url = blob.public_url
 
-    return jsonify({"status": "success"}), 200
+        # ------------------- Firestore -------------------
+        doc_ref = db.collection("users").document(user_id)
+        user_data = {
+            "shop_name": shop_name,
+            "phone": phone
+           
+        }
 
+        if image_url:
+            user_data["image_url"] = image_url
 
+        # ถ้ามีข้อมูลธนาคาร
+        bank_name = data.get("bankName")
+        account_name = data.get("accountName")
+        account_number = data.get("accountNumber")
+        if bank_name and account_name and account_number:
+            user_data.update({
+                "bankName": bank_name,
+                "accountName": account_name,
+                "accountNumber": account_number
+            })
+
+        doc_ref.set(user_data, merge=True)
+
+        return jsonify({"status": "success", "image_url": image_url}), 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ------------------- Generate QR -------------------
 @app.route("/generate_qr", methods=["POST"])
