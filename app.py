@@ -318,16 +318,20 @@ def save_user():
 
         # ------------------- Firestore -------------------
         doc_ref = db.collection("users").document(user_id)
+
+        # ✅ สร้าง user_data พร้อม default field สำหรับธนาคาร
         user_data = {
             "shop_name": shop_name,
-            "phone": phone
-           
+            "phone": phone,
+            "bankName": None,
+            "accountName": None,
+            "accountNumber": None
         }
 
         if image_url:
             user_data["image_url"] = image_url
 
-        # ถ้ามีข้อมูลธนาคาร
+        # ถ้ามีข้อมูลธนาคารจาก MAUI ให้ update
         bank_name = data.get("bankName")
         account_name = data.get("accountName")
         account_number = data.get("accountNumber")
@@ -338,12 +342,14 @@ def save_user():
                 "accountNumber": account_number
             })
 
+        # บันทึกข้อมูลลง Firestore (merge=True เพื่ออัปเดต document เดิมถ้ามี)
         doc_ref.set(user_data, merge=True)
 
         return jsonify({"status": "success", "image_url": image_url}), 200
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # ------------------- Generate QR -------------------
 @app.route("/generate_qr", methods=["POST"])
