@@ -912,7 +912,7 @@ def update_ticket_price():
 @app.route("/get_user", methods=["POST"])
 def get_user():
     try: 
-        data = request.json
+        data = request.get_json()
         user_id = data.get("user_id")
 
         if not user_id:
@@ -931,13 +931,17 @@ def get_user():
         result = {
             "phone": user_data.get("phone"),
             "shop_name": user_data.get("shop_name"),
-            "user_name": user_data.get("user_name")
+            "bankName": user_data.get("bankName"),
+            "accountName": user_data.get("accountName"),
+            "accountNumber": user_data.get("accountNumber"),
+            "image_url": user_data.get("image_url")
         }
 
-        return jsonify(result), 200
+        return jsonify({"status": "success", "user_data": result}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 #-------------------------------บันทึกการโอนเงิน ------------
 @app.route("/save_payment", methods=["POST"])
 def save_payment():
