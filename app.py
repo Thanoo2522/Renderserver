@@ -309,7 +309,6 @@ def save_user():
         # ------------------- Upload Base64 image to Storage -------------------
         image_url = None
         if base64_image:
-            # แปลง base64 → bytes
             image_bytes = base64.b64decode(base64_image)
             filename = f"{str(uuid.uuid4())}.jpg"
             filepath = os.path.join("/tmp", filename)
@@ -318,11 +317,10 @@ def save_user():
             with open(filepath, "wb") as f:
                 f.write(image_bytes)
 
-            # สร้าง blob path แบบ folder: lotterypost/{user_id}/imagelottery/{filename}
-            blob = bucket.blob(f"bookbankshop/{user_id}{filename}")
+            # สร้าง path: bookbankshop/{user_id}/filename.jpg
+            blob = bucket.blob(f"bookbankshop/{user_id}/{filename}")
             blob.upload_from_filename(filepath)
             blob.make_public()
-
             image_url = blob.public_url
 
             # ลบไฟล์ชั่วคราว
@@ -343,10 +341,15 @@ def save_user():
         if image_url:
             user_data["image_url"] = image_url
 
-        # ข้อมูลธนาคารจาก MAUI (แม้บาง field เป็น empty string)
-        user_data["bankName"] = data.get("bankName") or None
-        user_data["accountName"] = data.get("accountName") or None
-        user_data["accountNumber"] = data.get("accountNumber") or None
+        # ข้อมูลธนาคารจาก MAUI
+        bank_name = data.get("bankName")
+        account_name = data.get("accountName")
+        account_number = data.get("accountNumber")
+
+        # ถ้าเป็น empty string ให้เก็บเป็น None
+        user_data["bankName"] = bank_name if bank_name else None
+        user_data["accountName"] = account_name if account_name else None
+        user_data["accountNumber"] = account_number if account_number else None
 
         # บันทึกลง Firestore (merge=True เพื่ออัปเดต document เดิม)
         doc_ref.set(user_data, merge=True)
@@ -355,6 +358,7 @@ def save_user():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # ------------------- Generate QR -------------------
 @app.route("/generate_qr", methods=["POST"])
