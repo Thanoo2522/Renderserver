@@ -306,20 +306,20 @@ def save_user():
         if not user_id or not phone:
             return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
 
+        # ------------------- อัปโหลด image -------------------
         image_url = None
-        # ✅ Upload Base64 image to Storage
         if base64_image:
             image_data = base64.b64decode(base64_image)
             filename = f"{user_id}.jpg"
             blob = bucket.blob(f"bookbankshop/{filename}")
             blob.upload_from_string(image_data, content_type="image/jpeg")
-            blob.make_public()  # ให้ URL เข้าถึงได้จากภายนอก
+            blob.make_public()
             image_url = blob.public_url
 
         # ------------------- Firestore -------------------
         doc_ref = db.collection("users").document(user_id)
 
-        # ✅ สร้าง user_data พร้อม default field สำหรับธนาคาร
+        # default fields
         user_data = {
             "shop_name": shop_name,
             "phone": phone,
@@ -331,25 +331,18 @@ def save_user():
         if image_url:
             user_data["image_url"] = image_url
 
-        # ถ้ามีข้อมูลธนาคารจาก MAUI ให้ update
-        bank_name = data.get("bankName")
-        account_name = data.get("accountName")
-        account_number = data.get("accountNumber")
-        if bank_name and account_name and account_number:
-            user_data.update({
-                "bankName": bank_name,
-                "accountName": account_name,
-                "accountNumber": account_number
-            })
+        # ข้อมูลธนาคารจาก MAUI
+        user_data["bankName"] = data.get("bankName")
+        user_data["accountName"] = data.get("accountName")
+        user_data["accountNumber"] = data.get("accountNumber")
 
-        # บันทึกข้อมูลลง Firestore (merge=True เพื่ออัปเดต document เดิมถ้ามี)
+        # merge=True เพื่ออัปเดต document เดิม
         doc_ref.set(user_data, merge=True)
 
         return jsonify({"status": "success", "image_url": image_url}), 200
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 # ------------------- Generate QR -------------------
 @app.route("/generate_qr", methods=["POST"])
