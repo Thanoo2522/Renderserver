@@ -839,15 +839,19 @@ def get_tickets_by_user():
                 "image_url": t_data.get("image_url", ""),
                 "number6": str(t_data.get("number6", "")).zfill(6),
                 "quantity": int(t_data.get("quantity", 0)),
-                "priceuse": float(t_data.get("priceuse", 0)),  # ✅ บังคับให้เป็น number
+                "priceuse": float(t_data.get("priceuse", 0)),
             })
 
-        return jsonify({"results": results}), 200
-    
+        # ⭐ ส่งจำนวน ticket_id กลับไปด้วย
+        return jsonify({
+            "total_tickets": len(results),
+            "results": results
+        }), 200
 
     except Exception as e:
         print("❌ Error:", e)
         return jsonify({"error": str(e)}), 500
+
  #---------------- ลบ เลขออกจาก firestore database ------------------------   
 @app.route("/delete_ticket", methods=["POST"])
 def delete_ticket():
