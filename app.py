@@ -251,7 +251,7 @@ def get_date():
         response = requests.get(url1)
         response.raise_for_status()
         date = response.json()
-        return jsonify({"status": "success", "priceLottery": date})
+        return jsonify({"status": "success", "datetime": date})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
 
