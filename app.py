@@ -245,7 +245,7 @@ def get_numimage():
         return jsonify({"status": "error", "message": str(e)}), 500
 #---------------------------------------------------------------
 @app.route("/get_date", methods=["GET"])
-def get_date():
+def get_date_from_rtdb():
     url1 = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/searchusers/date.json"
     try:
         response = requests.get(url1)
