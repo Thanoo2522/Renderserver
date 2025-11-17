@@ -38,11 +38,12 @@ service_account_json = os.environ.get("FIREBASE_SERVICE_KEY")
  #   raise Exception("❌ Environment variable FIREBASE_SERVICE_KEY not set")
 
 cred = credentials.Certificate(json.loads(service_account_json))
-firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
+firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME,"databaseURL": RTD_URL1})
 
 db = firestore.client()
 rtdb_ref = rtdb.reference("/") # ← Realtime Database root
 bucket = storage.bucket()
+#---------------------
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
