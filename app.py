@@ -855,7 +855,7 @@ def get_user():
         result = {
             "phone": user_data.get("phone"),
             "shop_name": user_data.get("shop_name"),
-            "user_name": user_data.get("user_name")
+           # "user_name": user_data.get("user_name")
         }
 
         return jsonify(result), 200
