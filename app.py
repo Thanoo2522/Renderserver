@@ -1,5 +1,6 @@
 
-from flask import Flask, request, jsonify, send_from_directory
+
+from flask import Flask, request, jsonify, send_file, send_from_directory
 import os
 import base64
 from datetime import datetime
@@ -10,12 +11,13 @@ import json
 import time
 import requests
 import firebase_admin
-from firebase_admin import credentials, storage, firestore
+from firebase_admin import credentials, storage, db as rtdb, firestore
 import qrcode
 import io
 from io import BytesIO
 import firebase_admin
 from firebase_admin import credentials, firestore
+import tempfile
  
  
 
@@ -39,6 +41,7 @@ cred = credentials.Certificate(json.loads(service_account_json))
 firebase_admin.initialize_app(cred, {"storageBucket": BUCKET_NAME})
 
 db = firestore.client()
+rtdb_ref = rtdb.reference("/") # ← Realtime Database root
 bucket = storage.bucket()
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
@@ -158,7 +161,120 @@ def get_count():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)   
-# ---------------- บันทึกการนับภาพ นับการคลิกโทร ----------------
+# 🔹 สร้าง document system/way และตั้งค่า connected="true"
+@app.route("/create_connection", methods=["POST"])
+def create_connection():
+    try:
+        doc_ref = db.collection("system").document("way")
+        doc_ref.set({
+            "connected": "true"
+        })
+        return jsonify({
+            "status": "success",
+            "message": "Created document system/way with connected=true"
+        }), 200
+    except Exception as e:
+        print("❌ Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500    
+# ---------------- เช็คการเชื่อมต่อกับ firestore database ----------------
+@app.route("/check_connection", methods=["GET"])
+def check_connection():
+    try:
+        # 🔹 เข้าถึง document system/way
+        doc_ref = db.collection("system").document("way")
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return jsonify({"status": "error", "message": "Document not found"}), 404
+
+        data = doc.to_dict()
+        connected = data.get("connected", "false")
+
+        if connected == "true":
+            return jsonify({"status": "success", "connected": True})
+        else:
+            return jsonify({"status": "success", "connected": False})
+
+    except Exception as e:
+        print("❌ Error:", e)
+        return jsonify({"status": "error", "message": str(e)}), 500
+#-----------------------------------------------------------
+# ✅ GET: ดึงค่า numimage จาก Realtime Database
+# ============================================
+# 🔹 ดึงค่า numimage
+# ============================================
+@app.route("/get_numimage", methods=["GET"])
+def get_numimage():
+    try:
+        # 🔸 อ่านค่าจาก path: /searchusers/numimage
+        value = rtdb_ref.child("searchusers/numimage").get()
+        if value is None:
+            return jsonify({"status": "error", "message": "numimage not found"}), 404
+
+        return jsonify({"status": "success", "numimage": value}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+    #--------------------------ดึงวันที่จาก reltime database----------------------------------
+@app.route("/get_date", methods=["GET"])
+def get_date():
+    url1 = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/searchusers/date.json"
+    try:
+        response = requests.get(url1)
+        response.raise_for_status()
+        date = response.json()
+        return jsonify({"status": "success", "datetime": date})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+# ====================ดึงราคาจาก reltime database========================
+@app.route("/get_price", methods=["GET"])
+def get_price():
+    url = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/searchusers/priceLottery.json"
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        price = response.json()
+        return jsonify({"status": "success", "priceLottery": price})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+# 🔹 บันทึกค่า numimage , Realtime Database
+# ============================================
+@app.route("/set_numimage", methods=["POST"])
+def set_numimage():
+    try:
+        data = request.get_json(force=True)
+        numimage = data.get("numimage")
+
+        if numimage is None:
+            return jsonify({"status": "error", "message": "Missing numimage"}), 400
+
+        # 🔸 บันทึกลง Realtime Database
+        rtdb_ref.child("searchusers/numimage").set(int(numimage))
+
+        return jsonify({
+            "status": "success",
+            "message": f"numimage updated to {numimage}"
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+#--------------------- ดึงรุปจาก store ----------------------
+@app.route('/get_image/<filename>', methods=['GET'])
+def get_image(filename):
+    try:
+        bucket = storage.bucket()
+        blob = bucket.blob(f"BoolBank/{filename}")
+        if not blob.exists():
+            return jsonify({"error": "File not found"}), 404
+        
+        # 🔹 โหลดไฟล์ชั่วคราวเพื่อส่งกลับ
+        temp = tempfile.NamedTemporaryFile(delete=False)
+        blob.download_to_filename(temp.name)
+
+        return send_file(temp.name, mimetype='image/jpeg')
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500      
 
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
