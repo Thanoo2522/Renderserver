@@ -281,29 +281,68 @@ def get_image(filename):
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
-    data = request.get_json()
-    user_id = data.get("user_id")          # deviceId
-    shop_name = data.get("shop_name")
-    user_name = data.get("user_name")
-    phone = data.get("phone")
-    referrer_id = data.get("referrer_id", "")
-    register_date = data.get("register_date")
+    try:
+        data = request.get_json()
+        user_id = data.get("user_id")
+        shop_name = data.get("shop_name")
+        phone = data.get("phone")
+        base64_image = data.get("base64Image")
 
-    if not user_id or not phone:
-        return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
+        if not user_id or not phone:
+            return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
 
-    # ------------------- บันทึก Firestore -------------------
-    doc_ref = db.collection("users").document(user_id)
-    doc_ref.set({
-        "shop_name": shop_name,
-        "user_name": user_name,
-        "phone": phone,
-        "referrer_id": referrer_id,
-        "register_date": register_date
-    }, merge=True)
+        # ------------------- Upload Base64 image to Storage -------------------
+        image_url = None
+        if base64_image:
+            image_bytes = base64.b64decode(base64_image)
+            filename = f"{str(uuid.uuid4())}.jpg"
+            filepath = os.path.join("/tmp", filename)
 
-    return jsonify({"status": "success"}), 200
+            # เขียนไฟล์ชั่วคราว
+            with open(filepath, "wb") as f:
+                f.write(image_bytes)
 
+            # สร้าง path: bookbankshop/{user_id}/filename.jpg
+            blob = bucket.blob(f"bookbankshop/{user_id}/{filename}")
+            blob.upload_from_filename(filepath)
+            blob.make_public()
+            image_url = blob.public_url
+
+            # ลบไฟล์ชั่วคราว
+            os.remove(filepath)
+
+        # ------------------- Firestore -------------------
+        doc_ref = db.collection("users").document(user_id)
+
+        # default field สำหรับธนาคาร
+        user_data = {
+            "shop_name": shop_name,
+            "phone": phone,
+            "bankName": None,
+            "accountName": None,
+            "accountNumber": None
+        }
+
+        if image_url:
+            user_data["image_url"] = image_url
+
+        # ข้อมูลธนาคารจาก MAUI
+        bank_name = data.get("bankName")
+        account_name = data.get("accountName")
+        account_number = data.get("accountNumber")
+
+        # ถ้าเป็น empty string ให้เก็บเป็น None
+        user_data["bankName"] = bank_name if bank_name else None
+        user_data["accountName"] = account_name if account_name else None
+        user_data["accountNumber"] = account_number if account_number else None
+
+        # บันทึกลง Firestore (merge=True เพื่ออัปเดต document เดิม)
+        doc_ref.set(user_data, merge=True)
+
+        return jsonify({"status": "success", "image_url": image_url}), 200
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # ------------------- Generate QR -------------------
