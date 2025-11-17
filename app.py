@@ -148,13 +148,11 @@ def get_count():
 
         # ✅ กำหนดรูปแบบข้อมูลที่จะส่งกลับ
         result = {
-            "numimage": user_data.get("numimage"),
-            "numcall": user_data.get("numcall"),
-            # "status": user_data.get("status", 0),
-             #"Quota": user_data.get("Quota", 0),
-            "counterimage": user_data.get("counterimage"),  # ✅ เพิ่มบรรทัดนี้
-         
-             #"startdatetime": user_data.get("startdatetime", 0)
+            "numimage": user_data.get("numimage", 0),
+            "numcall": user_data.get("numcall", 0),
+            #"status": user_data.get("status", 0),
+           # "Quota": user_data.get("Quota", 0),
+            "startdatetime": user_data.get("startdatetime", 0)
         }
 
         return jsonify(result), 200
@@ -163,7 +161,8 @@ def get_count():
         return jsonify({"error": str(e)}), 500
 
 
-  
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)   
 # 🔹 สร้าง document system/way และตั้งค่า connected="true"
 @app.route("/create_connection", methods=["POST"])
 def create_connection():
@@ -282,68 +281,29 @@ def get_image(filename):
 # ------------------- Save User Profile -------------------
 @app.route("/save_user", methods=["POST"])
 def save_user():
-    try:
-        data = request.get_json()
-        user_id = data.get("user_id")
-        shop_name = data.get("shop_name")
-        phone = data.get("phone")
-        base64_image = data.get("base64Image")
+    data = request.get_json()
+    user_id = data.get("user_id")          # deviceId
+    shop_name = data.get("shop_name")
+    user_name = data.get("user_name")
+    phone = data.get("phone")
+    referrer_id = data.get("referrer_id", "")
+    register_date = data.get("register_date")
 
-        if not user_id or not phone:
-            return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
+    if not user_id or not phone:
+        return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
 
-        # ------------------- Upload Base64 image to Storage -------------------
-        image_url = None
-        if base64_image:
-            image_bytes = base64.b64decode(base64_image)
-            filename = f"{str(uuid.uuid4())}.jpg"
-            filepath = os.path.join("/tmp", filename)
+    # ------------------- บันทึก Firestore -------------------
+    doc_ref = db.collection("users").document(user_id)
+    doc_ref.set({
+        "shop_name": shop_name,
+        "user_name": user_name,
+        "phone": phone,
+        "referrer_id": referrer_id,
+        "register_date": register_date
+    }, merge=True)
 
-            # เขียนไฟล์ชั่วคราว
-            with open(filepath, "wb") as f:
-                f.write(image_bytes)
+    return jsonify({"status": "success"}), 200
 
-            # สร้าง path: bookbankshop/{user_id}/filename.jpg
-            blob = bucket.blob(f"bookbankshop/{user_id}/{filename}")
-            blob.upload_from_filename(filepath)
-            blob.make_public()
-            image_url = blob.public_url
-
-            # ลบไฟล์ชั่วคราว
-            os.remove(filepath)
-
-        # ------------------- Firestore -------------------
-        doc_ref = db.collection("users").document(user_id)
-
-        # default field สำหรับธนาคาร
-        user_data = {
-            "shop_name": shop_name,
-            "phone": phone,
-            "bankName": None,
-            "accountName": None,
-            "accountNumber": None
-        }
-
-        if image_url:
-            user_data["image_url"] = image_url
-
-        # ข้อมูลธนาคารจาก MAUI
-        bank_name = data.get("bankName")
-        account_name = data.get("accountName")
-        account_number = data.get("accountNumber")
-
-        # ถ้าเป็น empty string ให้เก็บเป็น None
-        user_data["bankName"] = bank_name if bank_name else None
-        user_data["accountName"] = account_name if account_name else None
-        user_data["accountNumber"] = account_number if account_number else None
-
-        # บันทึกลง Firestore (merge=True เพื่ออัปเดต document เดิม)
-        doc_ref.set(user_data, merge=True)
-
-        return jsonify({"status": "success", "image_url": image_url}), 200
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 # ------------------- Generate QR -------------------
@@ -837,7 +797,7 @@ def get_tickets_by_user():
 @app.route("/get_user", methods=["POST"])
 def get_user():
     try: 
-        data = request.get_json()
+        data = request.json
         user_id = data.get("user_id")
 
         if not user_id:
@@ -856,16 +816,13 @@ def get_user():
         result = {
             "phone": user_data.get("phone"),
             "shop_name": user_data.get("shop_name"),
-            "bankName": user_data.get("bankName"),
-            "accountName": user_data.get("accountName"),
-            "accountNumber": user_data.get("accountNumber"),
-            "image_url": user_data.get("image_url")
+            "user_name": user_data.get("user_name")
         }
 
-        return jsonify({"status": "success", "user_data": result}), 200
+        return jsonify(result), 200
 
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 #-------------------------------บันทึกการโอนเงิน ------------
 @app.route("/save_payment", methods=["POST"])
 def save_payment():
