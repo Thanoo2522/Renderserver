@@ -148,11 +148,13 @@ def get_count():
 
         # ✅ กำหนดรูปแบบข้อมูลที่จะส่งกลับ
         result = {
-            "numimage": user_data.get("numimage", 0),
-            "numcall": user_data.get("numcall", 0),
-            #"status": user_data.get("status", 0),
-           # "Quota": user_data.get("Quota", 0),
-            "startdatetime": user_data.get("startdatetime", 0)
+            "numimage": user_data.get("numimage"),
+            "numcall": user_data.get("numcall"),
+            # "status": user_data.get("status", 0),
+             #"Quota": user_data.get("Quota", 0),
+            "counterimage": user_data.get("counterimage"),  # ✅ เพิ่มบรรทัดนี้
+         
+             #"startdatetime": user_data.get("startdatetime", 0)
         }
 
         return jsonify(result), 200
@@ -161,8 +163,7 @@ def get_count():
         return jsonify({"error": str(e)}), 500
 
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)   
+  
 # 🔹 สร้าง document system/way และตั้งค่า connected="true"
 @app.route("/create_connection", methods=["POST"])
 def create_connection():
@@ -836,7 +837,7 @@ def get_tickets_by_user():
 @app.route("/get_user", methods=["POST"])
 def get_user():
     try: 
-        data = request.json
+        data = request.get_json()
         user_id = data.get("user_id")
 
         if not user_id:
@@ -855,13 +856,16 @@ def get_user():
         result = {
             "phone": user_data.get("phone"),
             "shop_name": user_data.get("shop_name"),
-           # "user_name": user_data.get("user_name")
+            "bankName": user_data.get("bankName"),
+            "accountName": user_data.get("accountName"),
+            "accountNumber": user_data.get("accountNumber"),
+            "image_url": user_data.get("image_url")
         }
 
-        return jsonify(result), 200
+        return jsonify({"status": "success", "user_data": result}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 #-------------------------------บันทึกการโอนเงิน ------------
 @app.route("/save_payment", methods=["POST"])
 def save_payment():
