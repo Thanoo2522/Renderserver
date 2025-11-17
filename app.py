@@ -25,6 +25,7 @@ app = Flask(__name__)
 
 # ------------------- Config -------------------get_user
 FIREBASE_URL = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/users"
+RTD_URL1 = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app"
 BUCKET_NAME = "lotteryview.firebasestorage.app"
 
 UPLOAD_FOLDER = "uploads"
