@@ -244,17 +244,6 @@ def get_numimage():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 #---------------------------------------------------------------
-@app.route("/get_date", methods=["GET"])
-def get_date_from_rtdb():
-    url1 = "https://lotteryview-default-rtdb.asia-southeast1.firebasedatabase.app/searchusers/date.json"
-    try:
-        response = requests.get(url1)
-        response.raise_for_status()
-        date = response.json()
-        return jsonify({"status": "success", "datetime": date})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
-
 # ====================ดึงราคาจาก reltime database================
     #--------------------------ดึงวันที่จาก reltime database----------------------------------
 @app.route("/get_date", methods=["GET"])
