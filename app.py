@@ -163,6 +163,7 @@ def get_count():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)   
+
 # 🔹 สร้าง document system/way และตั้งค่า connected="true"
 @app.route("/create_connection", methods=["POST"])
 def create_connection():
@@ -650,7 +651,7 @@ def search_saller():
 
                             if match_type:
                                 results.append({
-                                     # "user_id": user_id,
+                                      "user_id": user_id,
                                       "ticket_id": ticket_id,
                                     "image_url": ticket_data.get("image_url"),
                                     "number6": number6_str,
@@ -753,7 +754,7 @@ def search_number():
 
                         if match_type:
                             results.append({
-                               # "user_id": user_id,
+                                "user_id": user_id,
                                  "ticket_id": ticket_id,
                                 "image_url": ticket_data.get("image_url"),
                                 "number6": number6_str,
