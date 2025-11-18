@@ -834,7 +834,7 @@ def update_ticket_price():
    
 
  #------------------------- อ่าน firestoreไปแสดงที่หน้า UI shopview ------
- @app.route("/get_tickets_by_user", methods=["POST"])
+@app.route("/get_tickets_by_user", methods=["POST"])
 def get_tickets_by_user():
     try:
         data = request.json
