@@ -871,33 +871,36 @@ def get_user():
         user_id = data.get("user_id")
 
         if not user_id:
-            return jsonify({"error": "กรุณาส่ง user_id"}), 400
+            return jsonify({"status": "error", "message": "กรุณาส่ง user_id"}), 400
 
         # ดึง document จาก Firestore
         user_ref = db.collection("users").document(user_id)
         user_doc = user_ref.get()
 
         if not user_doc.exists:
-            return jsonify({"error": "ไม่พบข้อมูลผู้ใช้"}), 404
+            return jsonify({"status": "error", "message": "ไม่พบข้อมูลผู้ใช้"}), 404
 
         user_data = user_doc.to_dict()
 
         # ส่งกลับเฉพาะ field ที่ต้องการ
         result = {
-            "phone": user_data.get("phone"),
-            "shop_name": user_data.get("shop_name"),
+            "status": "success",
+            "user_data": {
+                "phone": user_data.get("phone"),
+                "shop_name": user_data.get("shop_name"),
 
-            # ---------- ฟิลด์ที่เพิ่มใหม่ ----------
-            "bankName": user_data.get("bankName"),
-            "accountName": user_data.get("accountName"),
-            "accountNumber": user_data.get("accountNumber"),
-            "base64Image": user_data.get("base64Image"),
+                # ---------- ฟิลด์เพิ่มใหม่ ----------
+                "bankName": user_data.get("bankName"),
+                "accountName": user_data.get("accountName"),
+                "accountNumber": user_data.get("accountNumber"),
+                "base64Image": user_data.get("base64Image")
+            }
         }
 
         return jsonify(result), 200
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 #-------------------------------บันทึกการโอนเงิน ------------
 @app.route("/save_payment", methods=["POST"])
