@@ -866,7 +866,7 @@ def get_tickets_by_user():
  # ---------------- อ่านข้แมูลจาก firestore แล้วส่งกลับ maui ----------------
 @app.route("/get_user", methods=["POST"])
 def get_user():
-    try: 
+    try:
         data = request.json
         user_id = data.get("user_id")
 
@@ -882,17 +882,23 @@ def get_user():
 
         user_data = user_doc.to_dict()
 
-        # เลือกส่งเฉพาะ field ที่ต้องการ
+        # ส่งกลับเฉพาะ field ที่ต้องการ
         result = {
             "phone": user_data.get("phone"),
             "shop_name": user_data.get("shop_name"),
-            #"user_name": user_data.get("user_name")
+
+            # ---------- ฟิลด์ที่เพิ่มใหม่ ----------
+            "bankName": user_data.get("bankName"),
+            "accountName": user_data.get("accountName"),
+            "accountNumber": user_data.get("accountNumber"),
+            "base64Image": user_data.get("base64Image"),
         }
 
         return jsonify(result), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 #-------------------------------บันทึกการโอนเงิน ------------
 @app.route("/save_payment", methods=["POST"])
 def save_payment():
