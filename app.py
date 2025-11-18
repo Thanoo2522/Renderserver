@@ -282,12 +282,19 @@ def get_image(filename):
 @app.route("/save_user", methods=["POST"])
 def save_user():
     data = request.get_json()
-    user_id = data.get("user_id")          # deviceId
+    print("📥 รับข้อมูล:", data)
+
+    user_id = data.get("user_id")  # deviceId
     shop_name = data.get("shop_name")
-    user_name = data.get("user_name")
     phone = data.get("phone")
     referrer_id = data.get("referrer_id", "")
     register_date = data.get("register_date")
+
+    # ----- ฟิลด์ใหม่ -----
+    bankName = data.get("bankName")
+    accountName = data.get("accountName")
+    accountNumber = data.get("accountNumber")
+    base64Image = data.get("base64Image")
 
     if not user_id or not phone:
         return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
@@ -296,15 +303,19 @@ def save_user():
     doc_ref = db.collection("users").document(user_id)
     doc_ref.set({
         "shop_name": shop_name,
-        "user_name": user_name,
         "phone": phone,
         "referrer_id": referrer_id,
-        "register_date": register_date
+        "register_date": register_date,
+
+        # ------------- เพิ่มส่วนนี้ -------------
+        "bankName": bankName,
+        "accountName": accountName,
+        "accountNumber": accountNumber,
+        "base64Image": base64Image
+        # ---------------------------------------
     }, merge=True)
 
     return jsonify({"status": "success"}), 200
-
-
 
 # ------------------- Generate QR -------------------
 @app.route("/generate_qr", methods=["POST"])
