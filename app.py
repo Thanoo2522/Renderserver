@@ -268,12 +268,16 @@ def get_view_list():
         bucket = storage.bucket()
         blobs = bucket.list_blobs(prefix="image_present/")
 
-        # ดึงชื่อไฟล์ view1, view2, viewN
-        filenames = [blob.name.replace("image_present/", "") for blob in blobs]
+        filenames = [
+            blob.name.replace("image_present/", "") 
+            for blob in blobs 
+            if blob.name.replace("image_present/", "") != ""  # กรองค่าว่าง
+        ]
 
         return jsonify(filenames)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 #--------------------------------------------------------
 @app.route('/image_view/<filename>', methods=['GET'])
 def image_view(filename):
