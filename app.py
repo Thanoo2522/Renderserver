@@ -261,6 +261,20 @@ def set_numimage():
         }), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+    #------------------------- ดึงภาพทำสไลค์ที่ maui ------------
+@app.route('/get_view_list', methods=['GET'])
+def get_view_list():
+    try:
+        bucket = storage.bucket()
+        blobs = bucket.list_blobs(prefix="image_present/")
+
+        # ดึงชื่อไฟล์ view1, view2, viewN
+        filenames = [blob.name.replace("image_present/", "") for blob in blobs]
+
+        return jsonify(filenames)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 #--------------------- ดึงรุปจาก store ----------------------
 @app.route('/get_image/<filename>', methods=['GET'])
 def get_image(filename):
