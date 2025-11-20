@@ -282,20 +282,22 @@ def get_view_list():
 @app.route('/image_view/<filename>', methods=['GET'])
 def image_view(filename):
     try:
-        bucket = storage.bucket()
         blob = bucket.blob(f"image_present/{filename}")
 
-        # Firebase: .exists() ใช้ไม่ได้ → เช็ค size แทน
+        # ❌ ห้ามใช้ blob.exists()
+        # ใช้ blob.size หรือ download แล้วเช็ค exception แทน
         if blob.size is None:
             return jsonify({"error": "File not found"}), 404
-        
+
         # โหลดลงไฟล์ชั่วคราว
         temp_file = tempfile.NamedTemporaryFile(delete=False)
         blob.download_to_filename(temp_file.name)
 
-        return send_file(temp_file.name, mimetype="image/jpeg")
+        # ส่งกลับเป็นภาพ
+        return send_file(temp_file.name, mimetype='image/jpeg', as_attachment=False)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500    
+        return jsonify({"error": str(e)}), 500
+    
 
 #--------------------- ดึงรุปจาก store ----------------------
 @app.route('/get_image/<filename>', methods=['GET'])
