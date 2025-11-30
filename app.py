@@ -332,6 +332,36 @@ def save_user():
 
     if not user_id or not phone:
         return jsonify({"error": "user_id และ phone ต้องไม่ว่าง"}), 400
+#---------------------------บันทึก saller ---------------------------------
+@app.route("/save_phone", methods=["POST"])
+def save_phone():
+    data = request.get_json()
+
+    if not data or "deviceId" not in data or "phone" not in data:
+        return jsonify({"message": "missing deviceId or phone"}), 400
+
+    deviceId = data["deviceId"]
+    phone = data["phone"]
+
+    # Document ID = deviceID ของมือถือ
+    doc_ref = db.collection("seller").document(deviceId)
+
+    # เพิ่มเบอร์โทรเป็น array (ไม่ทับกัน)
+    doc_ref.set({
+        "phone_list": firestore.ArrayUnion([phone])
+    }, merge=True)
+
+    return jsonify({"message": "save success", "deviceId": deviceId, "phone": phone}), 200
+#--------------------------- ส่ง saller ไปที่ maui -------------------
+@app.route("/get_phone/<deviceId>", methods=["GET"])
+def get_phone(deviceId):
+    doc_ref = db.collection("seller").document(deviceId)
+    doc = doc_ref.get()
+
+    if not doc.exists:
+        return jsonify({"message": "not found"}), 404
+
+    return jsonify(doc.to_dict()), 200
 
     # ------------------- บันทึก Firestore -------------------
     doc_ref = db.collection("users").document(user_id)
