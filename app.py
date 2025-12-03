@@ -633,10 +633,13 @@ def search_saller():
     try:
         data = request.json
         number = data.get("number")
-        saller_list = data.get("saller", [])  # ต้องเป็น list ของเบอร์โทร
+        saller_list = data.get("saller")  # list ของเบอร์ผู้ขาย
 
-        if not number or not isinstance(saller_list, list):
-            return jsonify({"error": "ต้องใส่ number และ saller ต้องเป็น list"}), 400
+        if not number or not saller_list:
+            return jsonify({"error": "ต้องใส่เลขและ saller"}), 400
+
+        if not isinstance(saller_list, list):
+            return jsonify({"error": "saller ต้องเป็น list"}), 400
 
         search_len = len(number)
         if search_len not in [2, 3, 6]:
@@ -645,7 +648,6 @@ def search_saller():
         results = []
         found_tickets = set()
 
-        # 🔹 ใช้หลักเดียวกับ search_number
         for digit_type, func in [
             ("ten", get_tens_digit),
             ("hundreds", get_hundreds_digit),
@@ -654,76 +656,72 @@ def search_saller():
             digit_value = func(int(number))
             index_name = f"{digit_value}_{digit_type}"
 
-            idx_col_ref = db.collection("search_index").document(index_name)
-            subcollections = list(idx_col_ref.collections())
+            for seller_phone in saller_list:
+                idx_col_ref = db.collection("search_index").document(seller_phone).collection(index_name)
+                subcollections = list(idx_col_ref.list_documents())
 
-            for subcol in subcollections:
-                docs = list(subcol.stream())
+                for subcol_doc in subcollections:
+                    num = subcol_doc.id
+                    num_ref = idx_col_ref.document(num)
+                    users = list(num_ref.collections())
 
-                for doc in docs:
-                    user_id = doc.id
-                    tickets = doc.to_dict()
+                    for user_col in users:
+                        docs = list(user_col.stream())
 
-                    for ticket_id in tickets.keys():
-                        if ticket_id in found_tickets:
-                            continue
+                        for doc in docs:
+                            user_id = doc.id
+                            tickets = doc.to_dict()
 
-                        # โหลดข้อมูลสลาก
-                        ticket_ref = db.collection("lotterypost").document(user_id)\
-                                       .collection("imagelottery").document(ticket_id)
-                        ticket_doc = ticket_ref.get()
+                            for ticket_id in tickets.keys():
+                                if ticket_id in found_tickets:
+                                    continue
 
-                        if not ticket_doc.exists:
-                            continue
+                                ticket_ref = db.collection("lotterypost").document(user_id).collection("imagelottery").document(ticket_id)
+                                ticket_doc = ticket_ref.get()
+                                if not ticket_doc.exists:
+                                    continue
 
-                        # โหลดข้อมูลผู้ขาย
-                        user_ref = db.collection("users").document(user_id)
-                        user_doc = user_ref.get()
-                        phone = ""
-                        name = ""
-                        shop = ""
+                                # ดึงข้อมูลผู้ใช้
+                                user_ref = db.collection("users").document(user_id)
+                                user_doc = user_ref.get()
+                                phone = ""
+                                name = ""
+                                shop = ""
 
-                        if user_doc.exists:
-                            d = user_doc.to_dict()
-                            phone = d.get("phone", "")
-                            name = d.get("user_name", "")
-                            shop = d.get("shop_name", "")
+                                if user_doc.exists:
+                                    user_data = user_doc.to_dict()
+                                    phone = user_data.get("phone", "")
+                                    name = user_data.get("user_name", "")
+                                    shop = user_data.get("shop_name", "")
 
-                        ticket_data = ticket_doc.to_dict()
-                        number6_str = str(ticket_data.get("number6", "")).zfill(6)
-                        match_type = None
+                                ticket_data = ticket_doc.to_dict()
+                                number6_str = str(ticket_data.get("number6", "")).zfill(6)
+                                match_type = None
 
-                        if search_len == 2 and number == number6_str[-2:]:
-                            match_type = "2 ตัวล่าง"
-                        elif search_len == 3 and number == number6_str[:3]:
-                            match_type = "3 ตัวบน"
-                        elif search_len == 3 and number == number6_str[-3:]:
-                            match_type = "3 ตัวล่าง"
-                        elif search_len == 6 and number == number6_str:
-                            match_type = "6 ตัวตรง"
+                                if search_len == 2 and number == number6_str[-2:]:
+                                    match_type = "2 ตัวล่าง"
+                                if search_len == 3 and number == number6_str[:3]:
+                                    match_type = "3 ตัวบน"
+                                if search_len == 3 and number == number6_str[-3:]:
+                                    match_type = "3 ตัวล่าง"
+                                if search_len == 6 and number == number6_str:
+                                    match_type = "6 ตัวตรง"
 
-                        if match_type:
-                            # 🔹 แยกใกล้/ไกลตาม phoneList
-                            seller_text = "แผงขายไกลส่งทางไปรษณีย์"
-                            if phone in saller_list:
-                                seller_text = "แผงขายอยู่ใกล้ส่งถึงบ้านได้"
-
-                            results.append({
-                                "user_id": user_id,
-                                "ticket_id": ticket_id,
-                                "image_url": ticket_data.get("image_url"),
-                                "number6": number6_str,
-                                "quantity": ticket_data.get("quantity"),
-                                "priceuse": ticket_data.get("priceuse"),
-                                "phone": phone,
-                                "name": name,
-                                "shop": shop,
-                                "match_type": match_type,
-                                "seller_text": seller_text,
-                                "referrer_id": phone  # ให้ MAUI ใช้เรียงแผงใกล้
-                            })
-
-                            found_tickets.add(ticket_id)
+                                if match_type:
+                                    results.append({
+                                        "user_id": user_id,
+                                        "ticket_id": ticket_id,
+                                        "image_url": ticket_data.get("image_url"),
+                                        "number6": number6_str,
+                                        "quantity": ticket_data.get("quantity"),
+                                        "priceuse": ticket_data.get("priceuse"),
+                                        "phone": phone,
+                                        "name": name,
+                                        "shop": shop,
+                                        "match_type": match_type
+                                        # ❌ ไม่ใส่ seller_text ให้ MAUI ตัดสินเอง
+                                    })
+                                    found_tickets.add(ticket_id)
 
         return jsonify({"results": results}), 200
 
